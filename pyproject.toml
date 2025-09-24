@@ -1,0 +1,35 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "1p-wallet.streamlit.app"
+version = "0.1.0"
+description = ""
+authors = [{ name = "Nasfame", email = "laciferin@gmail.com" }]
+requires-python = "~=3.13"
+readme = "README.md"
+license = "MIT"
+keywords = [
+    "streamlit",
+]
+classifiers = [
+    "Topic :: Software Development :: Build Tools",
+    "Programming Language :: Python :: 3.x",
+]
+dependencies = [
+    "streamlit>=1.49.0,<2",
+    "dataclasses-json>=0.6.7,<0.7",
+]
+
+[project.optional-dependencies]
+dev = []
+
+[project.urls]
+Homepage = "https://1p-wallet.streamlit.app"
+Repository = ""
+Documentation = ""
+"Bug Tracker" = ""
+
+[dependency-groups]
+dev = ["watchdog>=3.0.0,<4"]
