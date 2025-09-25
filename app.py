@@ -39,7 +39,7 @@ DIRECTION_MAP = {
 }
 
 # System configuration
-SYSTEM_WALLET_ADDRESS = os.getenv('APTOS_ACCOUNT')
+SYSTEM_WALLET_ADDRESS = os.getenv('APTOS_ACCOUNT') or "0xSYSTEM_WALLET_NOT_SET"
 SYSTEM_WALLET_PRIVATE_KEY = os.getenv('APTOS_PRIVATE_KEY')
 
 def generate_nonce() -> str:
@@ -86,6 +86,9 @@ class App:
                 self.system_wallet = Account.load_key(SYSTEM_WALLET_PRIVATE_KEY)
             except Exception as e:
                 st.error(f"Failed to initialize system wallet: {str(e)}")
+        else:
+            # Inform the operator that system wallet isn't configured
+            st.warning("System wallet private key not set (APTOS_PRIVATE_KEY). System-send and registration actions will be disabled until configured.")
 
 # Initialize app in session state
 if 'app' not in st.session_state:
@@ -111,6 +114,7 @@ pages = {
     "💳 Import/Generate Wallet": "wallet_setup",
     "📝 Registration": "registration",
     "🔐 Authentication": "authentication",
+    "👤 Account": "account",
 }
 
 # Only show Manage Wallet if authenticated

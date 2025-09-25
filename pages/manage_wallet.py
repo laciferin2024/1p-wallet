@@ -51,31 +51,35 @@ st.markdown("---")
 st.subheader("💸 Send Transaction")
 st.info("💡 **How it works:** Transactions are processed through our secure system wallet on your behalf")
 
-with st.form("send_transaction"):
-    recipient_address = st.text_input(
-        "Recipient Address",
-        placeholder="0x1234abcd...",
-        help="Enter the Aptos address to send funds to"
-    )
+if not app.system_wallet:
+    st.error("System wallet not configured. Sending transactions is disabled.")
+    st.info("Set APTOS_PRIVATE_KEY in environment and restart the app to enable system-send functionality.")
+else:
+    with st.form("send_transaction"):
+        recipient_address = st.text_input(
+            "Recipient Address",
+            placeholder="0x1234abcd...",
+            help="Enter the Aptos address to send funds to"
+        )
 
-    amount = st.number_input(
-        "Amount (APT)",
-        min_value=0.00000001,
-        max_value=100.0,
-        value=0.1,
-        step=0.01,
-        format="%.8f"
-    )
+        amount = st.number_input(
+            "Amount (APT)",
+            min_value=0.00000001,
+            max_value=100.0,
+            value=0.1,
+            step=0.01,
+            format="%.8f"
+        )
 
-    st.markdown("**Transaction Preview:**")
-    st.markdown(f"""
-    - **From:** System Wallet (`{SYSTEM_WALLET_ADDRESS[:20]}...`)
-    - **To:** `{recipient_address[:20] + '...' if len(recipient_address) > 20 else recipient_address}`
-    - **Amount:** {amount} APT
-    - **Fee:** ~0.001 APT (estimated)
-    """)
+        st.markdown("**Transaction Preview:**")
+        st.markdown(f"""
+        - **From:** System Wallet (`{SYSTEM_WALLET_ADDRESS[:20]}...`)
+        - **To:** `{recipient_address[:20] + '...' if len(recipient_address) > 20 else recipient_address}`
+        - **Amount:** {amount} APT
+        - **Fee:** ~0.001 APT (estimated)
+        """)
 
-    send_transaction = st.form_submit_button("🚀 Send Transaction", type="primary")
+        send_transaction = st.form_submit_button("🚀 Send Transaction", type="primary")
 
     if send_transaction:
         if not recipient_address:
