@@ -93,6 +93,27 @@ class App:
     recent_characters: List[str] = field(default_factory=list)
     favorite_characters: List[str] = field(default_factory=list)
 
+    async def get_account_balance(self, address):
+        """Get account balance in APT"""
+        if not self.wallet:
+            return 0
+
+        try:
+            resources = await self.client.account_resources(address)
+            apt_balance = 0
+            for resource in resources:
+                if resource['type'] == '0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>':
+                    apt_balance = int(resource['data']['coin']['value']) / 100000000  # Convert from octas to APT
+                    break
+            return apt_balance
+        except Exception as e:
+            raise Exception(f"Failed to check balance: {str(e)}")
+
+    def get_account_balance_sync(self, address):
+        """Synchronous wrapper for get_account_balance"""
+        import asyncio
+        return asyncio.run(self.get_account_balance(address))
+
     def __post_init__(self):
         # Initialize system wallet
         if SYSTEM_WALLET_PRIVATE_KEY:
@@ -196,25 +217,59 @@ if current_page == "home":
     elif not app.is_authenticated:
         st.info("👈 Authenticate to access wallet management")
 
-elif current_page == "wallet_setup":
-    # This will be implemented as a separate page
-    exec(open('pages/wallet_setup.py').read())
+else:
+    # Import and execute the page module properly
+    import sys
+    import importlib.util
 
-elif current_page == "registration":
-    # This will be implemented as a separate page
-    exec(open('pages/registration.py').read())
+    # Define variables that will be available to the page modules
+    page_globals = {
+        'st': st,
+        'app': app,
+        'DOMAINS': DOMAINS,
+        'COLORS': COLORS,
+        'DIRECTIONS': DIRECTIONS,
+        'SYSTEM_WALLET_ADDRESS': SYSTEM_WALLET_ADDRESS,
+        'DIRECTION_MAP': DIRECTION_MAP,
+        'Account': Account,
+        'EntryFunction': EntryFunction,
+        'Serializer': Serializer,
+    }
 
-elif current_page == "authentication":
-    # This will be implemented as a separate page
-    exec(open('pages/authentication.py').read())
+    # Handle page routing
+    if current_page == "wallet_setup":
+        spec = importlib.util.spec_from_file_location("wallet_setup", "pages/wallet_setup.py")
+        page_module = importlib.util.module_from_spec(spec)
+        page_module.__dict__.update(page_globals)
+        spec.loader.exec_module(page_module)
 
-elif current_page == "manage_wallet":
-    if app.is_authenticated:
-        # This will be implemented as a separate page
-        exec(open('pages/manage_wallet.py').read())
-    else:
-        st.error("Please authenticate first to access wallet management.")
-        st.info("👈 Use the Authentication page to verify your 1P secret")
+    elif current_page == "registration":
+        spec = importlib.util.spec_from_file_location("registration", "pages/registration.py")
+        page_module = importlib.util.module_from_spec(spec)
+        page_module.__dict__.update(page_globals)
+        spec.loader.exec_module(page_module)
+
+    elif current_page == "authentication":
+        spec = importlib.util.spec_from_file_location("authentication", "pages/authentication.py")
+        page_module = importlib.util.module_from_spec(spec)
+        page_module.__dict__.update(page_globals)
+        spec.loader.exec_module(page_module)
+
+    elif current_page == "manage_wallet":
+        if app.is_authenticated:
+            spec = importlib.util.spec_from_file_location("manage_wallet", "pages/manage_wallet.py")
+            page_module = importlib.util.module_from_spec(spec)
+            page_module.__dict__.update(page_globals)
+            spec.loader.exec_module(page_module)
+        else:
+            st.error("Please authenticate first to access wallet management.")
+            st.info("👈 Use the Authentication page to verify your 1P secret")
+
+    elif current_page == "account":
+        spec = importlib.util.spec_from_file_location("account", "pages/account.py")
+        page_module = importlib.util.module_from_spec(spec)
+        page_module.__dict__.update(page_globals)
+        spec.loader.exec_module(page_module)
 
 # Footer
 st.sidebar.markdown("---")

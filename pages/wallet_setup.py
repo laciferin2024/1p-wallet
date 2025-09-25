@@ -131,28 +131,15 @@ if app.wallet:
     if st.button("Check Balance", type="secondary"):
         with st.spinner("Checking balance..."):
             try:
-                # Get account balance
-                account_data = app.client.account(app.wallet.address())
-                balance = account_data.get('authentication_key', 'Unknown')
+                # Get APT balance using the sync helper method
+                apt_balance = app.get_account_balance_sync(app.wallet.address())
 
-                # Try to get APT balance
-                try:
-                    resources = app.client.account_resources(app.wallet.address())
-                    apt_balance = 0
-                    for resource in resources:
-                        if resource['type'] == '0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>':
-                            apt_balance = int(resource['data']['coin']['value']) / 100000000  # Convert from octas to APT
-                            break
+                st.success(f"💰 Balance: **{apt_balance} APT**")
 
-                    st.success(f"💰 Balance: **{apt_balance} APT**")
-
-                    if apt_balance >= 1.0:
-                        st.success("✅ Sufficient balance for registration (≥1 APT required)")
-                    else:
-                        st.warning("⚠️ Insufficient balance for registration. Please use the faucet to get at least 1 APT.")
-
-                except Exception as e:
-                    st.warning("⚠️ Could not fetch APT balance. Please ensure your wallet has been funded.")
+                if apt_balance >= 1.0:
+                    st.success("✅ Sufficient balance for registration (≥1 APT required)")
+                else:
+                    st.warning("⚠️ Insufficient balance for registration. Please use the faucet to get at least 1 APT.")
 
             except Exception as e:
                 st.error(f"❌ Failed to check balance: {str(e)}")

@@ -21,12 +21,7 @@ with col1:
     if st.button("Check Original Balance", type="secondary"):
         with st.spinner("Checking balance..."):
             try:
-                resources = app.client.account_resources(app.wallet.address())
-                apt_balance = 0
-                for resource in resources:
-                    if resource['type'] == '0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>':
-                        apt_balance = int(resource['data']['coin']['value']) / 100000000
-                        break
+                apt_balance = app.get_account_balance_sync(app.wallet.address())
                 st.metric("Original Wallet", f"{apt_balance} APT")
             except Exception as e:
                 st.error(f"Error: {str(e)}")
@@ -36,12 +31,7 @@ with col2:
     if st.button("Check System Balance", type="secondary"):
         with st.spinner("Checking system balance..."):
             try:
-                resources = app.client.account_resources(SYSTEM_WALLET_ADDRESS)
-                apt_balance = 0
-                for resource in resources:
-                    if resource['type'] == '0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>':
-                        apt_balance = int(resource['data']['coin']['value']) / 100000000
-                        break
+                apt_balance = app.get_account_balance_sync(SYSTEM_WALLET_ADDRESS)
                 st.metric("System Wallet", f"{apt_balance} APT")
             except Exception as e:
                 st.error(f"Error: {str(e)}")
