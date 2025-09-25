@@ -18,6 +18,7 @@ dependencies = [
     "web3>=6.0.0,<7",               # For Web3 interactions
     "python-dotenv>=1.0.0,<2",      # For managing environment variables
     "pyotp>=2.0.0,<3",              # For Time-based One-Time Password algorithm (2FA)
+    "aptos-sdk>=0.11.0",
 ]
 
 [project.optional-dependencies]
@@ -27,9 +28,9 @@ dev = [
 
 [project.urls]
 Homepage = "https://1p-wallet.streamlit.app"
-Repository = ""
-Documentation = ""
-"Bug Tracker" = ""
+# Repository = ""
+# Documentation = ""
+# "Bug Tracker" = ""
 
 [tool.hatch.build.targets.wheel]
 include = [

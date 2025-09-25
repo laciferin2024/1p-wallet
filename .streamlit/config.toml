@@ -8,8 +8,8 @@ cookieSecret = "a-random-key-appears-here"
 baseUrlPath = ""
 enableCORS = true
 enableXsrfProtection = true
-maxUploadSize = 1024 #mb
-maxMessageSize = 200 #mb
+maxUploadSize = 1024                       #mb
+maxMessageSize = 200                       #mb
 enableWebsocketCompression = true
 
 enableStaticServing = true

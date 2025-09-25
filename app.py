@@ -8,7 +8,7 @@ from queue import Queue
 
 import streamlit as st
 import streamlit.components.v1 as components
-from aptos_sdk.client import RestClient
+from aptos_sdk.async_client import RestClient
 from aptos_sdk.account import Account
 from aptos_sdk.transactions import EntryFunction
 from aptos_sdk.bcs import Serializer
@@ -20,7 +20,6 @@ from ecdsa import SigningKey, VerifyingKey, SECP256k1
 from ecdsa.util import sigencode_der, sigdecode_der
 from collections import defaultdict
 from itertools import islice
-import readchar
 
 # ANSI colors for grid display (for terminal, but not used in Streamlit)
 ANSI_COLORS = {
@@ -38,9 +37,7 @@ DOMAINS = {
           "😀😂❤️👍🙏😍😭😅🎉🔥💯😎🤔🤦😴🤖👀✨✅🚀",
 }
 
-ALPHABET = string.ascii_letters + string.digits + string.punctuation + (
-    "😀😂❤️👍🙏😍😭😅🎉🔥💯😎🤔🤦😴🤖👀✨✅🚀"
-)
+ALPHABET = DOMAINS['en']
 
 COLORS = ["red", "green", "blue", "yellow"]
 DIRECTIONS = ["Up", "Down", "Left", "Right", "Skip"]
