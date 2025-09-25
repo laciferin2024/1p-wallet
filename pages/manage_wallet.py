@@ -4,6 +4,8 @@ import streamlit as st
 # Manage Wallet Page
 st.header("💰 Manage Wallet")
 
+from pages import app
+
 if not app.is_authenticated:
     st.error("❌ Authentication required")
     st.info("Please authenticate first to access wallet management")

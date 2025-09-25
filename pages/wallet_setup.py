@@ -5,6 +5,9 @@ import streamlit as st
 
 st.header("💳 Import/Generate Wallet")
 
+
+from pages import app
+
 # Attempt automatic restore from browser localStorage if streamlit_javascript is available
 has_streamlit_js = False
 try:

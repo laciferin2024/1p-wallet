@@ -3,6 +3,8 @@ import streamlit as st
 from utils.transfer_utils import transfer_apt_sync
 from components.auth_component import one_round_auth
 
+from pages import app
+
 # Registration Page
 st.header("📝 Registration")
 

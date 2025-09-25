@@ -20,6 +20,8 @@ from itertools import islice
 import random
 from dotenv import load_dotenv
 
+from pages import initApp
+
 # Load environment variables
 load_dotenv()
 
@@ -274,12 +276,7 @@ class App:
             # Inform the operator that system wallet isn't configured
             st.warning("System wallet private key not set (APTOS_PRIVATE_KEY). System-send and registration actions will be disabled until configured.")
 
-# Initialize app in session state
-if 'app' not in st.session_state:
-    st.session_state.app = App()
-
-app = st.session_state.app
-
+app = initApp()
 # Page configuration
 st.set_page_config(
     page_title="1P Wallet - 2FA for Web3",

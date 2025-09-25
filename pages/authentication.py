@@ -3,6 +3,8 @@ import streamlit as st
 # Authentication Page
 st.header("🔐 Authentication")
 
+from pages import app
+
 if not app.wallet:
     st.error("❌ Please connect a wallet first")
     st.info("👈 Go to 'Import/Generate Wallet' to get started")

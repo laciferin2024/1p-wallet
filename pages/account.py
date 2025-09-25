@@ -3,6 +3,8 @@ import streamlit as st
 
 st.header("👤 Account")
 
+from pages import app
+
 if not app.wallet:
     st.error("❌ No wallet connected")
     st.info("Go to 'Import/Generate Wallet' to connect a wallet")

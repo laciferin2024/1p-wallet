@@ -3,6 +3,8 @@
 
 import streamlit as st
 
+from pages import app
+
 
 st.header("📋 Transaction History")
 

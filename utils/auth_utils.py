@@ -1,10 +1,7 @@
-import random
-import hashlib
-import secrets
 from collections import defaultdict
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Tuple
 
-from utils.helpers import generate_nonce, keccak256, generate_entropy_layers
+from utils.helpers import generate_nonce, generate_entropy_layers
 
 class OneRoundVerifier:
     """
