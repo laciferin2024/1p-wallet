@@ -132,9 +132,24 @@ class App:
     def get_account_balance_sync(self, address):
         """Synchronous wrapper for get_account_balance"""
         try:
-            # Use our more robust _run_coro_sync function
-            from utils.aptos_sync import _run_coro_sync
-            return _run_coro_sync(self.get_account_balance(address))
+            # Use RestClientSync directly instead of relying on async methods
+            from utils.aptos_sync import RestClientSync
+
+            # Create a new sync client for each call to avoid event loop issues
+            sync_client = RestClientSync("https://testnet.aptoslabs.com/v1")
+
+            # Fetch resources directly with sync client
+            resources = sync_client.account_resources(address)
+            apt_balance = 0.0
+
+            # Process resources to find APT balance
+            for resource in resources:
+                if resource['type'] == '0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>':
+                    apt_balance = int(resource['data']['coin']['value']) / 100000000  # Convert from octas to APT
+                    break
+
+            logging.info(f"Fetched balance for {address}: {apt_balance} APT")
+            return apt_balance
         except Exception as e:
             logging.error(f"Error in get_account_balance_sync: {str(e)}")
             # Return 0 for balance rather than crashing completely
@@ -178,8 +193,14 @@ class App:
 
         try:
             # Use Aptos SDK to get account transactions
-            from utils.aptos_sync import _run_coro_sync
-            transactions = await self.client.get_account_transactions(address, limit=limit)
+            # We need to handle this differently since AsyncRestClient doesn't have get_account_transactions
+            from utils.aptos_sync import RestClientSync
+
+            # Create a sync client with the same URL as our async client
+            sync_client = RestClientSync(self.client.base_url)
+
+            # Use the sync client to get transactions
+            transactions = sync_client.get_account_transactions(address, limit=limit)
 
             # Process transactions to identify credits and debits
             processed_txns = []
@@ -231,10 +252,63 @@ class App:
             return []
 
     def fetch_account_transactions_sync(self, address=None, limit=20):
-        """Synchronous wrapper for fetch_account_transactions"""
+        """Synchronous wrapper for fetch_account_transactions that avoids asyncio issues"""
+        if not address and self.wallet:
+            address = str(self.wallet.address())
+
+        if not address:
+            logging.error("No wallet address provided for transaction history")
+            return []
+
         try:
-            from utils.aptos_sync import _run_coro_sync
-            return _run_coro_sync(self.fetch_account_transactions(address, limit))
+            # Use the RestClientSync directly to avoid asyncio issues
+            from utils.aptos_sync import RestClientSync
+            sync_client = RestClientSync(self.client.base_url)
+            transactions = sync_client.get_account_transactions(address, limit=limit)
+
+            # Process transactions to identify credits and debits (copied from async version)
+            processed_txns = []
+            for txn in transactions:
+                try:
+                    # Extract basic transaction data
+                    txn_hash = txn.get('hash', '')
+                    txn_version = txn.get('version', 0)
+                    sender = txn.get('sender', '')
+                    timestamp = txn.get('timestamp', 0) / 1000000  # Convert to seconds
+
+                    # Extract payload data to determine transaction type and amount
+                    payload = txn.get('payload', {})
+                    function = payload.get('function', '')
+
+                    # Only process coin transfers for now
+                    if '0x1::coin::transfer' in function:
+                        args = payload.get('arguments', [])
+                        if len(args) >= 2:
+                            recipient = args[0]
+                            amount_octas = int(args[1])
+                            amount_apt = amount_octas / 100000000  # Convert octas to APT
+
+                            # Determine if credit or debit
+                            is_credit = recipient == address
+
+                            # Create transaction object
+                            transaction = Transaction(
+                                txn_hash=txn_hash,
+                                sender=sender,
+                                recipient=recipient,
+                                amount=amount_apt,
+                                timestamp=timestamp,
+                                is_credit=is_credit,
+                                status="completed",
+                                description=f"Transaction {txn_version}"
+                            )
+
+                            processed_txns.append(transaction)
+                except Exception as e:
+                    logging.error(f"Error processing transaction: {str(e)}")
+                    continue
+
+            return processed_txns
         except Exception as e:
             logging.error(f"Error fetching transactions synchronously: {str(e)}")
             return []

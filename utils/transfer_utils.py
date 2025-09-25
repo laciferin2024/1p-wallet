@@ -7,14 +7,14 @@ from aptos_sdk.bcs import Serializer
 
 from utils.aptos_sync import RestClientSync
 
-async def transfer_apt(
+def transfer_apt_direct(
     sender_account: Account,
     recipient_address: str,
     amount_apt: float,
     client_url: str = "https://testnet.aptoslabs.com/v1"
 ) -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Transfer APT from sender to recipient.
+    Transfer APT from sender to recipient using direct sync methods.
 
     Args:
         sender_account: The sender's Account object
@@ -69,13 +69,9 @@ def transfer_apt_sync(
     client_url: str = "https://testnet.aptoslabs.com/v1"
 ) -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Synchronous wrapper for transfer_apt
+    Synchronous transfer function that doesn't rely on async/await
     """
-    try:
-        from utils.aptos_sync import _run_coro_sync
-        return _run_coro_sync(transfer_apt(
-            sender_account, recipient_address, amount_apt, client_url
-        ))
-    except Exception as e:
-        logging.error(f"Sync transfer failed: {str(e)}")
-        return False, None, str(e)
+    # We now use the direct sync implementation instead of wrapping an async function
+    return transfer_apt_direct(
+        sender_account, recipient_address, amount_apt, client_url
+    )
