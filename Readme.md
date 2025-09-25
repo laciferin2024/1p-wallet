@@ -28,3 +28,7 @@ streamlit run app.py
 Notes:
 - This project is for demonstration. Do not use the provided scripts in production without proper key management.
 - Use `scripts/verify_env.sh` to confirm environment variables are present.
+
+Notes from runtime:
+- Streamlit recommends installing `watchdog` for better file-change performance (`pip install watchdog`).
+- It is recommended that private keys are AIP-80 compliant: https://github.com/aptos-foundation/AIPs/blob/main/aips/aip-80.md
