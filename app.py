@@ -263,7 +263,7 @@ if app.wallet is None:
         app.wallet = Account.generate()
         st.success("Wallet generated!")
         st.write(f"Address: {app.wallet.address()}")
-        st.write(f"Private Key (keep secret!): {app.wallet.signing_key.hex()}")
+        st.write(f"Private Key (keep secret!): {app.wallet.private_key.hex()}")
         st.session_state['app'] = app
 
 if app.wallet:
@@ -273,8 +273,8 @@ if app.wallet:
         if len(secret) != 1 or secret not in ALPHABET:
             st.error("Invalid: Single character from domain required.")
         else:
-            app.verifier = OnePVerifier(secret, app.wallet.public_key().hex())
-            app.solver = OnePSolver(app.wallet.signing_key.hex())
+            app.verifier = OnePVerifier(secret, str(app.wallet.public_key()))
+            app.solver = OnePSolver(app.wallet.private_key.hex())
             st.success("1P Secret set!")
             st.session_state['app'] = app
 
