@@ -2,9 +2,17 @@
 # Note: This file is executed in the context of app.py, so all imports are available
 
 import streamlit as st
+import logging
 
 st.header("💳 Import/Generate Wallet")
+from aptos_sdk.account import Account
 
+# Import helper functions
+from utils.helpers import redirect_if_direct_access
+
+# Check if accessed directly and redirect if needed
+if redirect_if_direct_access():
+    st.stop()
 
 from pages import app
 
@@ -28,8 +36,8 @@ if has_streamlit_js and not app.wallet:
                 if pk:
                     clean_pk = pk[2:] if pk.startswith('0x') else pk
                     app.wallet = Account.load_key(clean_pk)
-                    st.session_state['cached_wallet'] = {'address': str(app.wallet.address()), 'private_key': app.wallet.private_key.hex()}
-                    st.session_state.app = app
+                    # Persist wallet into session via App helper
+                    app.save_to_session()
                     st.success('✅ Wallet restored from browser localStorage')
                     st.experimental_rerun()
             except Exception:
@@ -50,11 +58,8 @@ with col1:
             try:
                 app.wallet = Account.generate_secp256k1_ecdsa()
                 # Cache in session_state so the wallet persists during this browser session
-                st.session_state['cached_wallet'] = {
-                    'address': str(app.wallet.address()),
-                    'private_key': app.wallet.private_key.hex()
-                }
-                st.session_state.app = app
+                # Persist wallet to session
+                app.save_to_session()
                 st.success("✅ Wallet generated successfully!")
                 st.info("**⚠️ Important:** Save your private key securely before proceeding!")
 
@@ -87,12 +92,8 @@ with col2:
 
                 # Create account from private key hex
                 app.wallet = Account.load_key(clean_private_key)
-                # Cache imported wallet in session_state for this session
-                st.session_state['cached_wallet'] = {
-                    'address': str(app.wallet.address()),
-                    'private_key': app.wallet.private_key.hex()
-                }
-                st.session_state.app = app
+                # Persist wallet to session
+                app.save_to_session()
 
                 st.success("✅ Wallet imported successfully!")
                 st.info(f"**Address:** {app.wallet.address()}")
@@ -154,7 +155,7 @@ if app.wallet:
                             status="completed",
                             description="Testnet Faucet Claim"
                         )
-                        st.session_state.app = app
+                        app.save_to_session()
                         st.markdown("📋 You can view this transaction in your **Transaction History** page")
 
                         # Add refresh button to check balance
@@ -215,6 +216,7 @@ if app.wallet:
     st.subheader("🔐 Backup & Persistence")
     st.markdown("It's recommended you back up your private key securely. Storing private keys in browser localStorage is insecure — only do this if you understand the risk.")
 
+    # Use session_state directly to access cached wallet to avoid property access issues
     cached = st.session_state.get('cached_wallet')
     if cached:
         # Prepare JSON for download
@@ -260,7 +262,8 @@ if app.wallet:
                     if clean_pk.startswith('0x'):
                         clean_pk = clean_pk[2:]
                     app.wallet = Account.load_key(clean_pk)
-                    st.session_state.app = app
+                    app.save_to_session()
+                    
                     st.success("✅ Wallet restored from backup and loaded into session")
                     st.experimental_rerun()
                 else:

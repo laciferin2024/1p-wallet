@@ -5,16 +5,14 @@ from aptos_sdk.account import Account
 from aptos_sdk.transactions import EntryFunction
 from aptos_sdk.bcs import Serializer
 
-from utils.aptos_sync import RestClientSync
-
-def transfer_apt_direct(
+async def transfer_apt_async(
     sender_account: Account,
     recipient_address: str,
     amount_apt: float,
     client_url: str = "https://testnet.aptoslabs.com/v1"
 ) -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Transfer APT from sender to recipient using direct sync methods.
+    Transfer APT from sender to recipient asynchronously.
 
     Args:
         sender_account: The sender's Account object
@@ -42,18 +40,19 @@ def transfer_apt_direct(
             [recipient_address, serialized_amount]
         )
 
-        # Use sync client
-        sync_client = RestClientSync(client_url)
+        # Use async client directly
+        from aptos_sdk.async_client import RestClient
+        client = RestClient(client_url)
 
         # Create and sign transaction
-        txn = sync_client.create_transaction(sender_account.address(), payload)
+        txn = await client.create_transaction(sender_account.address(), payload)
         signed_txn = sender_account.sign_transaction(txn)
 
         # Submit transaction
-        txn_hash = sync_client.submit_transaction(signed_txn)
+        txn_hash = await client.submit_transaction(signed_txn)
 
         # Wait for confirmation
-        sync_client.wait_for_transaction(txn_hash, timeout=30)
+        await client.wait_for_transaction(txn_hash, timeout=30)
 
         return True, txn_hash, None
 
@@ -69,9 +68,10 @@ def transfer_apt_sync(
     client_url: str = "https://testnet.aptoslabs.com/v1"
 ) -> Tuple[bool, Optional[str], Optional[str]]:
     """
-    Synchronous transfer function that doesn't rely on async/await
+    Synchronous wrapper using nest_asyncio
     """
-    # We now use the direct sync implementation instead of wrapping an async function
-    return transfer_apt_direct(
+    # Use our clean nest_asyncio implementation
+    from utils.nest_runner import async_to_sync
+    return async_to_sync(transfer_apt_async(
         sender_account, recipient_address, amount_apt, client_url
-    )
+    ))

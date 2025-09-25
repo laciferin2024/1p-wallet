@@ -1,57 +1,18 @@
-import asyncio
-import concurrent.futures
 import requests
 import logging
 from typing import Any, Dict, List, Optional
 
 from aptos_sdk.async_client import RestClient as AsyncRestClient
+from utils.nest_runner import run_async, run_coroutine, async_to_sync
 
 
 def _run_coro_sync(coro):
-    """Run coroutine synchronously, even if an event loop is already running.
+    """Run coroutine synchronously, using the clean nest_asyncio implementation.
 
-    This version is completely thread-safe and ensures a fresh event loop for each call,
-    preventing "Event loop is closed" errors in Streamlit.
+    This function is kept for backward compatibility and delegates to the more
+    clean and robust nest_runner utilities.
     """
-    # Always use a thread to isolate event loop lifecycle
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-        future = ex.submit(lambda: _run_in_new_loop(coro))
-        try:
-            return future.result(timeout=60)  # 60-second timeout to prevent hangs
-        except concurrent.futures.TimeoutError:
-            raise TimeoutError("Async operation timed out after 60 seconds")
-
-def sync_wrapper(async_func):
-    """A safe decorator for wrapping async functions to be called synchronously.
-
-    This wrapper is safe for Streamlit and other environments where event loops may be
-    closed or reused between calls. It ensures each async operation runs in isolation.
-
-    Example:
-        @sync_wrapper
-        async def fetch_data(param1, param2):
-            # async code here
-
-        # Call it synchronously
-        result = fetch_data(arg1, arg2)
-    """
-    def wrapper(*args, **kwargs):
-        coro = async_func(*args, **kwargs)
-        return _run_coro_sync(coro)
-    return wrapper
-
-def _run_in_new_loop(coro):
-    """Helper function to run a coroutine in a completely new event loop."""
-    # Create a new loop
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        # Run the coroutine
-        return loop.run_until_complete(coro)
-    finally:
-        # Clean up properly
-        loop.close()
+    return async_to_sync(coro)
 
 
 class RestClientSync:

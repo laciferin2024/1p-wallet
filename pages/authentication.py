@@ -1,9 +1,72 @@
 import streamlit as st
+import logging
+from collections import defaultdict
+import random
+
+# Import helper functions
+from utils.helpers import redirect_if_direct_access
+
+# Check if accessed directly and redirect if needed
+if redirect_if_direct_access():
+    st.stop()
 
 # Authentication Page
 st.header("🔐 Authentication")
 
+# Import necessary modules
 from pages import app
+
+# Get access to necessary variables
+try:
+    # Try to get from the main app
+    from app import SessionState, generate_nonce, generate_entropy_layers, DOMAINS, COLORS, DIRECTIONS, DIRECTION_MAP
+except ImportError:
+    # Fallback to session state if direct page access
+    logging.info("Direct page access detected, using session state for app variables")
+    if 'SessionState' not in globals():
+        @st.cache_data
+        def get_session_state_class():
+            from app import SessionState
+            return SessionState
+        try:
+            SessionState = get_session_state_class()
+        except Exception as e:
+            logging.error(f"Failed to import SessionState: {e}")
+            st.error("⚠️ Application not properly initialized")
+            st.info("Please start from the main page")
+            st.stop()
+
+    # Use values from session state if available
+    if 'DOMAINS' in st.session_state:
+        DOMAINS = st.session_state.DOMAINS
+        COLORS = st.session_state.COLORS
+        DIRECTIONS = st.session_state.DIRECTIONS
+        DIRECTION_MAP = st.session_state.DIRECTION_MAP
+        generate_nonce = st.session_state.get('generate_nonce')
+        generate_entropy_layers = st.session_state.get('generate_entropy_layers')
+    else:
+        # Provide defaults if not available
+        logging.warning("Missing app constants, using defaults")
+        DOMAINS = {}
+        COLORS = ["red", "green", "blue", "yellow"]
+        DIRECTIONS = ["Up", "Down", "Left", "Right", "Skip"]
+        DIRECTION_MAP = {"Up": "U", "Down": "D", "Left": "L", "Right": "R", "Skip": "S"}
+
+        # Define fallback functions
+        import secrets, hashlib
+        def generate_nonce():
+            return secrets.token_hex(32)
+
+        def generate_entropy_layers(seed, layers):
+            arr = []
+            cur = seed
+            for _ in range(layers):
+                random_bytes = secrets.token_bytes(2).hex()
+                h = hashlib.sha3_256(cur.encode('utf-8')).hexdigest()
+                val = int(h[:8], 16)
+                arr.append(val)
+                cur = h + random_bytes
+            return arr
 
 if not app.wallet:
     st.error("❌ Please connect a wallet first")
@@ -21,7 +84,7 @@ if app.is_authenticated:
 
     if st.button("🔄 Re-authenticate", type="secondary"):
         app.is_authenticated = False
-        st.session_state.app = app
+        app.save_to_session()
         st.rerun()
     st.stop()
 
@@ -137,10 +200,7 @@ class OnePVerifier:
 st.markdown("---")
 st.subheader("🎯 1P Challenge")
 
-if 'auth_session' not in st.session_state:
-    st.session_state.auth_session = None
-
-if st.session_state.auth_session is None:
+if app.auth_session is None:
     st.info("Click 'Start Authentication' to begin the challenge")
 
     if st.button("🚀 Start Authentication", type="primary"):
@@ -150,7 +210,7 @@ if st.session_state.auth_session is None:
             verifier = OnePVerifier(app.selected_secret, public_key_hex)
             nonce, grids, total_rounds = verifier.start_session()
 
-            st.session_state.auth_session = {
+            app.auth_session = {
                 'verifier': verifier,
                 'grids': grids,
                 'total_rounds': total_rounds,
@@ -158,12 +218,13 @@ if st.session_state.auth_session is None:
                 'solutions': [],
                 'nonce': nonce
             }
+            app.save_to_session()
             st.rerun()
         except Exception as e:
             st.error(f"Failed to start authentication: {str(e)}")
 
 else:
-    session = st.session_state.auth_session
+    session = app.auth_session
     current_round = session['current_round']
     total_rounds = session['total_rounds']
 
@@ -211,7 +272,8 @@ else:
 
                 session['solutions'].append(direction_code)
                 session['current_round'] += 1
-                st.session_state.auth_session = session
+                app.auth_session = session
+                app.save_to_session()
                 st.rerun()
 
     else:
@@ -224,14 +286,15 @@ else:
 
         if verifier.verify_solution(solutions):
             app.is_authenticated = True
-            st.session_state.app = app
-            st.session_state.auth_session = None  # Clear session
+            app.auth_session = None  # Clear session
+            app.save_to_session()
 
             st.success("✅ Authentication successful!")
             st.success("🎉 Welcome to your secure 1P wallet!")
             st.balloons()
 
             st.info("👈 Go to 'Manage Wallet' to access your wallet functions")
+            st.rerun()
 
         else:
             st.error("❌ Authentication failed!")
@@ -239,5 +302,6 @@ else:
             st.warning("Please try again or check your secret character and direction mapping.")
 
             if st.button("🔄 Try Again", type="secondary"):
-                st.session_state.auth_session = None
+                app.auth_session = None
+                app.save_to_session()
                 st.rerun()

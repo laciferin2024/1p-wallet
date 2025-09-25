@@ -9,6 +9,13 @@ from queue import Queue
 from typing import List, Dict, Optional
 
 import streamlit as st
+import os
+import sys
+
+# Add the current directory to sys.path to help with imports
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 from aptos_sdk.async_client import RestClient
 from aptos_sdk.account import Account
 from aptos_sdk.transactions import EntryFunction
@@ -132,24 +139,15 @@ class App:
     def get_account_balance_sync(self, address):
         """Synchronous wrapper for get_account_balance"""
         try:
-            # Use RestClientSync directly instead of relying on async methods
-            from utils.aptos_sync import RestClientSync
-
-            # Create a new sync client for each call to avoid event loop issues
-            sync_client = RestClientSync("https://testnet.aptoslabs.com/v1")
-
-            # Fetch resources directly with sync client
-            resources = sync_client.account_resources(address)
-            apt_balance = 0.0
-
-            # Process resources to find APT balance
-            for resource in resources:
-                if resource['type'] == '0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>':
-                    apt_balance = int(resource['data']['coin']['value']) / 100000000  # Convert from octas to APT
-                    break
-
-            logging.info(f"Fetched balance for {address}: {apt_balance} APT")
-            return apt_balance
+            # Use our clean nest_asyncio implementation
+            # Important: Create a fresh coroutine each time, never reuse
+            from utils.nest_runner import async_to_sync
+            # We call the function directly to get a fresh coroutine
+            return async_to_sync(self.get_account_balance(address))
+        except ValueError as e:
+            logging.error(f"Coroutine error: {str(e)}")
+            # Try one more time with a new coroutine
+            return async_to_sync(self.get_account_balance(address))
         except Exception as e:
             logging.error(f"Error in get_account_balance_sync: {str(e)}")
             # Return 0 for balance rather than crashing completely
@@ -252,7 +250,7 @@ class App:
             return []
 
     def fetch_account_transactions_sync(self, address=None, limit=20):
-        """Synchronous wrapper for fetch_account_transactions that avoids asyncio issues"""
+        """Synchronous wrapper for fetch_account_transactions using nest_asyncio"""
         if not address and self.wallet:
             address = str(self.wallet.address())
 
@@ -261,54 +259,9 @@ class App:
             return []
 
         try:
-            # Use the RestClientSync directly to avoid asyncio issues
-            from utils.aptos_sync import RestClientSync
-            sync_client = RestClientSync(self.client.base_url)
-            transactions = sync_client.get_account_transactions(address, limit=limit)
-
-            # Process transactions to identify credits and debits (copied from async version)
-            processed_txns = []
-            for txn in transactions:
-                try:
-                    # Extract basic transaction data
-                    txn_hash = txn.get('hash', '')
-                    txn_version = txn.get('version', 0)
-                    sender = txn.get('sender', '')
-                    timestamp = txn.get('timestamp', 0) / 1000000  # Convert to seconds
-
-                    # Extract payload data to determine transaction type and amount
-                    payload = txn.get('payload', {})
-                    function = payload.get('function', '')
-
-                    # Only process coin transfers for now
-                    if '0x1::coin::transfer' in function:
-                        args = payload.get('arguments', [])
-                        if len(args) >= 2:
-                            recipient = args[0]
-                            amount_octas = int(args[1])
-                            amount_apt = amount_octas / 100000000  # Convert octas to APT
-
-                            # Determine if credit or debit
-                            is_credit = recipient == address
-
-                            # Create transaction object
-                            transaction = Transaction(
-                                txn_hash=txn_hash,
-                                sender=sender,
-                                recipient=recipient,
-                                amount=amount_apt,
-                                timestamp=timestamp,
-                                is_credit=is_credit,
-                                status="completed",
-                                description=f"Transaction {txn_version}"
-                            )
-
-                            processed_txns.append(transaction)
-                except Exception as e:
-                    logging.error(f"Error processing transaction: {str(e)}")
-                    continue
-
-            return processed_txns
+            # Use our clean nest_asyncio implementation
+            from utils.nest_runner import async_to_sync
+            return async_to_sync(self.fetch_account_transactions(address, limit=limit))
         except Exception as e:
             logging.error(f"Error fetching transactions synchronously: {str(e)}")
             return []
@@ -350,10 +303,107 @@ class App:
             # Inform the operator that system wallet isn't configured
             st.warning("System wallet private key not set (APTOS_PRIVATE_KEY). System-send and registration actions will be disabled until configured.")
 
+        # Sync any session-backed state (cached wallet, auth sessions, etc.) into this App instance
+        try:
+            self.load_from_session()
+        except Exception:
+            # Avoid crashing pages on import; failures here should not stop Streamlit page load
+            logging.exception("Failed to load session state into App during __post_init__")
+
+        # Persist this App object into Streamlit session_state for pages to access
+        try:
+            st.session_state['app'] = self
+
+            # Store common app variables in session state for direct page access
+            st.session_state['DOMAINS'] = DOMAINS
+            st.session_state['COLORS'] = COLORS
+            st.session_state['DIRECTIONS'] = DIRECTIONS
+            st.session_state['DIRECTION_MAP'] = DIRECTION_MAP
+            st.session_state['SessionState'] = SessionState
+            st.session_state['generate_nonce'] = generate_nonce
+            st.session_state['generate_entropy_layers'] = generate_entropy_layers
+            st.session_state['app_initialized'] = True
+        except Exception:
+            # Some Streamlit environments may not allow writing at import time; ignore
+            pass
+
+    # --- Session-backed helpers -------------------------------------------------
+    @property
+    def cached_wallet(self):
+        """Proxy property for st.session_state['cached_wallet']"""
+        return st.session_state.get('cached_wallet')
+
+    @cached_wallet.setter
+    def cached_wallet(self, value):
+        st.session_state['cached_wallet'] = value
+        # Keep the live App object in session as well
+        st.session_state['app'] = self
+
+    @property
+    def auth_session(self):
+        return st.session_state.get('auth_session')
+
+    @auth_session.setter
+    def auth_session(self, value):
+        st.session_state['auth_session'] = value
+        st.session_state['app'] = self
+
+    @property
+    def registration_auth(self):
+        return st.session_state.get('registration_auth')
+
+    @registration_auth.setter
+    def registration_auth(self, value):
+        st.session_state['registration_auth'] = value
+        st.session_state['app'] = self
+
+    def load_from_session(self):
+        """Load common session-backed keys into the App instance.
+
+        This ensures pages can safely rely on `app` fields even when navigating
+        directly to a page mid-session.
+        """
+        # Load cached wallet if present
+        cached = st.session_state.get('cached_wallet')
+        if cached and not self.wallet:
+            try:
+                pk = cached.get('private_key')
+                if pk:
+                    clean_pk = pk[2:] if pk.startswith('0x') else pk
+                    self.wallet = Account.load_key(clean_pk)
+            except Exception:
+                logging.exception("Failed to load cached wallet from session")
+
+        # Bring in boolean flags if present
+        self.is_registered = bool(st.session_state.get('is_registered', self.is_registered))
+        self.is_authenticated = bool(st.session_state.get('is_authenticated', self.is_authenticated))
+
+        # Load any other structured session items if present
+        if 'direction_mapping' in st.session_state and not self.direction_mapping:
+            self.direction_mapping = st.session_state.get('direction_mapping', self.direction_mapping)
+
+    def save_to_session(self):
+        """Persist useful App fields into Streamlit session_state.
+
+        Call this after mutating the App so pages and reruns see updated values.
+        """
+        try:
+            if self.wallet:
+                st.session_state['cached_wallet'] = {
+                    'address': str(self.wallet.address()),
+                    'private_key': self.wallet.private_key.hex()
+                }
+            st.session_state['is_registered'] = self.is_registered
+            st.session_state['is_authenticated'] = self.is_authenticated
+            st.session_state['direction_mapping'] = self.direction_mapping
+            st.session_state['app'] = self
+        except Exception:
+            logging.exception("Failed to save App state into session")
+
 app = initApp()
 # Page configuration
 st.set_page_config(
-    page_title="1P Wallet - 2FA for Web3",
+    page_title="1P Wallet - 2FA for wallets",
     page_icon="🔒",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -384,7 +434,7 @@ if app.is_authenticated:
 selected_page = st.sidebar.selectbox(
     "Navigate to:",
     options=list(pages.keys()),
-    key="page_selector"
+    key="app_page_selector"
 )
 
 current_page = pages[selected_page]
@@ -409,7 +459,7 @@ else:
     st.sidebar.warning("⚠️ Not Authenticated")
 
 # Main content area
-st.title("🔒 1P Wallet - 2FA for Web3")
+st.title("🔒 1P Wallet - 2FA for wallets")
 
 # Route to appropriate page
 if current_page == "home":

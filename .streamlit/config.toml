@@ -1,19 +1,20 @@
 # doc: https://docs.streamlit.io/library/advanced-features/theming
 
 [server]
-folderWatchBlacklist = ['.idea', '.run']
+folderWatchBlacklist = [".idea", ".run"]
 runOnSave = true
 port = 8502
-cookieSecret = "a-random-key-appears-here"
+cookieSecret = "a-random-key-appears-here"  # consider setting via an environment variable for production
 baseUrlPath = ""
 enableCORS = true
-enableXsrfProtection = true
-maxUploadSize = 1024                       #mb
-maxMessageSize = 200                       #mb
-enableWebsocketCompression = true
+enableXsrfProtection = false
+maxUploadSize = 1024                       # mb
+maxMessageSize = 200                       # mb
+enableWebsocketCompression = false
 
 enableStaticServing = true
-#served in ./static :=/app/static/filename.jpg
+# served in ./static :=/app/static/filename.jpg
+
 [theme]
 primaryColor = "#fff"
 backgroundColor = "#000000"
@@ -22,7 +23,6 @@ textColor = "#ffffff"
 font = "sans serif"
 
 [browser]
-
 serverAddress = "localhost"
 gatherUsageStats = true
 serverPort = 8502
@@ -33,8 +33,8 @@ serverPort = 8502
 # removed in future Streamlit versions.
 # token = ""
 
-
 # Removed deprecated/invalid options: Streamlit no longer recognizes several
 # of the [deprecation] and [runner] options. If you need similar behavior,
 # manage it from code or environment variables. Keeping this file minimal
+# avoids runtime warnings about invalid config keys.
 # avoids runtime warnings about invalid config keys.

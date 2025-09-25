@@ -1,7 +1,14 @@
-
 import streamlit as st
+import logging
 from utils.transfer_utils import transfer_apt_sync
 from components.auth_component import one_round_auth
+
+# Import helper functions
+from utils.helpers import redirect_if_direct_access
+
+# Check if accessed directly and redirect if needed
+if redirect_if_direct_access():
+    st.stop()
 
 from pages import app
 
@@ -149,11 +156,11 @@ for row_idx, row in enumerate(rows):
         with cols[col_idx]:
             unicode_info = f"\\nU+{ord(char):04X}" if show_unicode else ""
             if st.button(f"{char}{unicode_info}",
-                      key=f"char_{row_idx}_{col_idx}_p{page_num}",
-                      use_container_width=True):
+                         key=f"char_{row_idx}_{col_idx}_p{page_num}",
+                         use_container_width=True):
                 selected_secret = char
                 app.selected_secret = char
-                st.session_state.app = app
+                app.save_to_session()
                 st.rerun()
 
 # Show recently used characters for quick selection
@@ -168,10 +175,10 @@ if not app.selected_secret and (app.recent_characters or app.favorite_characters
         for idx, char in enumerate(app.favorite_characters):
             with fav_cols[idx % len(fav_cols)]:
                 if st.button(f"{char}",
-                          key=f"fav_{idx}",
-                          use_container_width=True):
+                             key=f"fav_{idx}",
+                             use_container_width=True):
                     app.selected_secret = char
-                    st.session_state.app = app
+                    app.save_to_session()
                     st.rerun()
 
     # Show recent characters if available
@@ -181,8 +188,8 @@ if not app.selected_secret and (app.recent_characters or app.favorite_characters
         for idx, char in enumerate(app.recent_characters):
             with recent_cols[idx % len(recent_cols)]:
                 if st.button(f"{char}",
-                          key=f"recent_{idx}",
-                          use_container_width=True):
+                             key=f"recent_{idx}",
+                             use_container_width=True):
                     app.selected_secret = char
 
                     # Add to favorites
@@ -193,7 +200,7 @@ if not app.selected_secret and (app.recent_characters or app.favorite_characters
                                 if len(app.favorite_characters) > 10:
                                     app.favorite_characters.pop(0)  # Remove oldest if over limit
 
-                    st.session_state.app = app
+                    app.save_to_session()
                     st.rerun()
 
 # Show selected secret
@@ -206,23 +213,23 @@ if app.selected_secret:
         # Keep only the last 10 characters
         if len(app.recent_characters) > 10:
             app.recent_characters.pop(0)
-        st.session_state.app = app
+        app.save_to_session()
 
     # Option to add to favorites
     col1, col2 = st.columns([3, 1])
     with col2:
         if app.selected_secret not in app.favorite_characters:
-            if st.button("⭐ Add to Favorites"):
-                app.favorite_characters.append(app.selected_secret)
-                if len(app.favorite_characters) > 10:
-                    app.favorite_characters.pop(0)  # Remove oldest if over limit
-                st.session_state.app = app
-                st.rerun()
+                if st.button("⭐ Add to Favorites"):
+                    app.favorite_characters.append(app.selected_secret)
+                    if len(app.favorite_characters) > 10:
+                        app.favorite_characters.pop(0)  # Remove oldest if over limit
+                    app.save_to_session()
+                    st.rerun()
         else:
-            if st.button("❌ Remove from Favorites"):
-                app.favorite_characters.remove(app.selected_secret)
-                st.session_state.app = app
-                st.rerun()
+                if st.button("❌ Remove from Favorites"):
+                    app.favorite_characters.remove(app.selected_secret)
+                    app.save_to_session()
+                    st.rerun()
 
 # Step 2: Direction Mapping Configuration
 if app.selected_secret:
@@ -250,7 +257,7 @@ if app.selected_secret:
             st.text(f"{color.title()}: {direction} {emoji_map[direction]}")
 
     app.direction_mapping = direction_mapping
-    st.session_state.app = app
+    app.save_to_session()
 
 # Step 3: Authentication
 if app.selected_secret and app.direction_mapping:
@@ -272,28 +279,26 @@ if app.selected_secret and app.direction_mapping:
 
     if not auth_success:
         # If auth is not completed or failed, stop here
-        if "registration_auth" in st.session_state and st.session_state["registration_auth"]["completed"]:
-            if not st.session_state["registration_auth"]["success"]:
+        if app.registration_auth and app.registration_auth.get("completed"):
+            if not app.registration_auth.get("success"):
                 st.error("❌ Authentication failed! Please try again.")
                 if st.button("🔄 Try Again", key="auth_retry"):
                     # Reset auth state
-                    st.session_state["registration_auth"] = {
+                    app.registration_auth = {
                         'started': False,
                         'completed': False,
                         'success': False,
                         'grid_html': None,
                         'expected': None
                     }
+                    app.save_to_session()
                     st.rerun()
         st.stop()
 
     st.success("✅ Authentication successful!")
 
 # Step 4: Balance Transfer
-if app.selected_secret and app.direction_mapping and \
-   "registration_auth" in st.session_state and \
-   st.session_state["registration_auth"]["completed"] and \
-   st.session_state["registration_auth"]["success"]:
+if app.selected_secret and app.direction_mapping and app.registration_auth and app.registration_auth.get("completed") and app.registration_auth.get("success"):
     st.markdown("---")
     st.subheader("💰 Step 4: Transfer Funds for Registration")
 
@@ -412,7 +417,8 @@ if app.selected_secret and app.direction_mapping and \
                     description="1P Wallet Registration"
                 )
 
-                st.session_state.app = app
+                # Persist changes to session
+                app.save_to_session()
 
                 st.success("🎉 Registration completed successfully!")
                 st.success(f"✅ Transaction Hash: `{txn_hash}`")

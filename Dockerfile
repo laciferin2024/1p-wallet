@@ -18,7 +18,7 @@ COPY requirements.txt ./
 COPY . .
 
 # Install dependencies with uv
-RUN uv pip install .
+RUN uv pip install --system .
 
 EXPOSE 8501
 

@@ -1,5 +1,13 @@
 # Account Page - basic account details and reset
 import streamlit as st
+import logging
+
+# Import helper functions
+from utils.helpers import redirect_if_direct_access
+
+# Check if accessed directly and redirect if needed
+if redirect_if_direct_access():
+    st.stop()
 
 st.header("👤 Account")
 

@@ -2,6 +2,14 @@
 # This page displays the user's transaction history, showing credits and debits
 
 import streamlit as st
+import logging
+
+# Import helper functions
+from utils.helpers import redirect_if_direct_access
+
+# Check if accessed directly and redirect if needed
+if redirect_if_direct_access():
+    st.stop()
 
 from pages import app
 

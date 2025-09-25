@@ -1,5 +1,12 @@
 import streamlit as st
+import logging
 
+# Import helper functions
+from utils.helpers import redirect_if_direct_access
+
+# Check if accessed directly and redirect if needed
+if redirect_if_direct_access():
+    st.stop()
 
 # Manage Wallet Page
 st.header("💰 Manage Wallet")
@@ -130,6 +137,7 @@ else:
                     )
 
                     st.session_state.app = app
+                    app.save_to_session()
 
                     st.success("✅ Transaction sent successfully!")
                     st.success(f"📋 Transaction Hash: `{txn_hash}`")
@@ -198,7 +206,7 @@ with col1:
 
     if st.button("🚪 Logout", type="secondary"):
         app.is_authenticated = False
-        st.session_state.app = app
+        app.save_to_session()
         st.success("Logged out successfully")
         st.info("👈 Go to Authentication to login again")
         st.rerun()
