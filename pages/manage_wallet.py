@@ -7,43 +7,37 @@ if not app.is_authenticated:
     st.stop()
 
 st.success("🔐 Authenticated Session Active")
-st.markdown(f"**Wallet:** `{str(app.wallet.address())[:20]}...`")
-st.markdown(f"**System Wallet:** `{SYSTEM_WALLET_ADDRESS[:20]}...`")
+st.markdown(f"**Your Wallet Address:** `{str(app.wallet.address())[:20]}...`")
 
-# Display current balance from system wallet
+# Display wallet balance
 st.markdown("---")
-st.subheader("💰 Balance Overview")
+st.subheader("💰 Your Wallet Balance")
 
-col1, col2 = st.columns(2)
+# Automatically check user balance
+with st.spinner("Checking your wallet balance..."):
+    try:
+        # Use the sync helper method
+        apt_balance = app.get_account_balance_sync(app.wallet.address())
 
-with col1:
-    st.markdown("**Your Original Wallet:**")
-    if st.button("Check Original Balance", type="secondary"):
-        with st.spinner("Checking balance..."):
-            try:
-                apt_balance = app.get_account_balance_sync(app.wallet.address())
-                st.metric("Original Wallet", f"{apt_balance} APT")
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
+        # Show the balance
+        st.metric("Current Balance", f"{apt_balance} APT")
 
-with col2:
-    st.markdown("**System Wallet (Your Funds):**")
-    if st.button("Check System Balance", type="secondary"):
-        with st.spinner("Checking system balance..."):
-            try:
-                apt_balance = app.get_account_balance_sync(SYSTEM_WALLET_ADDRESS)
-                st.metric("System Wallet", f"{apt_balance} APT")
-            except Exception as e:
-                st.error(f"Error: {str(e)}")
+        # Add a refresh button
+        if st.button("🔄 Refresh Balance", type="secondary"):
+            st.rerun()
+
+    except Exception as e:
+        st.error(f"Error checking balance: {str(e)}")
+        st.info("Try refreshing the page if this persists.")
 
 # Transaction functionality
 st.markdown("---")
 st.subheader("💸 Send Transaction")
-st.info("💡 **How it works:** Transactions are processed through our secure system wallet on your behalf")
+st.info("💡 **Secure Transactions:** Send APT directly from your authenticated wallet")
 
 if not app.system_wallet:
-    st.error("System wallet not configured. Sending transactions is disabled.")
-    st.info("Set APTOS_PRIVATE_KEY in environment and restart the app to enable system-send functionality.")
+    st.error("Wallet service not configured. Sending transactions is disabled.")
+    st.info("Please try again later when the service is available.")
 else:
     with st.form("send_transaction"):
         recipient_address = st.text_input(
@@ -63,7 +57,7 @@ else:
 
         st.markdown("**Transaction Preview:**")
         st.markdown(f"""
-        - **From:** System Wallet (`{SYSTEM_WALLET_ADDRESS[:20]}...`)
+        - **From:** Your Authenticated Wallet
         - **To:** `{recipient_address[:20] + '...' if len(recipient_address) > 20 else recipient_address}`
         - **Amount:** {amount} APT
         - **Fee:** ~0.001 APT (estimated)
@@ -109,7 +103,7 @@ else:
                     with st.expander("Transaction Details", expanded=True):
                         st.markdown(f"""
                         - **Hash:** `{txn_hash}`
-                        - **From:** `{app.system_wallet.address()}`
+                        - **From:** Your Authenticated Wallet
                         - **To:** `{recipient_address}`
                         - **Amount:** {amount} APT
                         - **Status:** Confirmed ✅
@@ -178,8 +172,6 @@ with col2:
     with st.expander("View Account Details"):
         st.markdown(f"""
         **Wallet Address:** `{app.wallet.address()}`
-
-        **System Wallet:** `{SYSTEM_WALLET_ADDRESS}`
 
         **Selected Secret:** {app.selected_secret} (U+{ord(app.selected_secret):04X})
 

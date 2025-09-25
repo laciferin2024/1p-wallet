@@ -247,15 +247,14 @@ if app.selected_secret:
 # Step 3: Balance Transfer
 if app.selected_secret and app.direction_mapping:
     st.markdown("---")
-    st.subheader("💰 Step 3: Transfer Funds to System")
+    st.subheader("💰 Step 3: Transfer Funds for Registration")
 
-    st.info(f"**System Wallet Address:** `{SYSTEM_WALLET_ADDRESS}`")
     st.markdown("**Why transfer funds?**")
     st.markdown("""
+    - Transfers 1 APT minimum to register for the 1P system
     - Your funds are held securely in our system wallet
     - Transactions are processed through our secure backend
     - Your private key is never exposed after registration
-    - Minimum 1 APT required for registration
     """)
 
     # Check current balance automatically
@@ -310,7 +309,7 @@ if app.selected_secret and app.direction_mapping:
     - **Secret Character:** {app.selected_secret}
     - **Direction Mapping:** {len(app.direction_mapping)} colors configured
     - **Transfer Amount:** {transfer_amount} APT
-    - **System Wallet:** `{SYSTEM_WALLET_ADDRESS[:20]}...`
+    - **From Wallet:** `{app.wallet.address()[:10]}...`
     """)
 
     st.error("🔒 **Important:** After registration, your wallet's private key will be securely handled by our system. Make sure you're ready to proceed.")
