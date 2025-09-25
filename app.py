@@ -274,7 +274,7 @@ if app.wallet:
             st.error("Invalid: Single character from domain required.")
         else:
             app.verifier = OnePVerifier(secret, str(app.wallet.public_key()))
-            app.solver = OnePSolver(app.wallet.private_key.hex())
+            app.solver = OnePSolver(app.wallet.private_key.hex().lstrip('0x'))
             st.success("1P Secret set!")
             st.session_state['app'] = app
 
