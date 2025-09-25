@@ -123,7 +123,6 @@ else:
                     except Exception as e:
                         st.error(f"Transaction failed: {str(e)}")
                         st.warning("Please try again later.")
-                        return
 
                     # Record transaction in our history
                     app.add_transaction(
