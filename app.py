@@ -260,7 +260,7 @@ app = st.session_state.get('app', App())
 if app.wallet is None:
     st.subheader("Setup Aptos Wallet")
     if st.button("Generate Wallet"):
-        app.wallet = Account.generate()
+        app.wallet = Account.generate_secp256k1_ecdsa()
         st.success("Wallet generated!")
         st.write(f"Address: {app.wallet.address()}")
         st.write(f"Private Key (keep secret!): {app.wallet.private_key.hex()}")
@@ -273,7 +273,7 @@ if app.wallet:
         if len(secret) != 1 or secret not in ALPHABET:
             st.error("Invalid: Single character from domain required.")
         else:
-            app.verifier = OnePVerifier(secret, str(app.wallet.public_key()))
+            app.verifier = OnePVerifier(secret, app.wallet.public_key().to_bytes()[1:].hex())
             app.solver = OnePSolver(app.wallet.private_key.hex().lstrip('0x'))
             st.success("1P Secret set!")
             st.session_state['app'] = app
