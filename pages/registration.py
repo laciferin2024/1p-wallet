@@ -1,5 +1,7 @@
 
 import streamlit as st
+from utils.transfer_utils import transfer_apt_sync
+from components.auth_component import one_round_auth
 
 # Registration Page
 st.header("📝 Registration")
@@ -18,8 +20,9 @@ st.markdown("""
 ### Registration Process:
 1. **Select your 1P secret** - Choose one UTF-8 character elegantly
 2. **Configure direction mapping** - Set your color-to-direction preferences
-3. **Transfer minimum 1 APT** - Funds will be held in our secure system wallet
-4. **Complete registration** - Your wallet will be registered for 1P authentication
+3. **Authenticate yourself** - Verify your 1P secret with a quick challenge
+4. **Transfer minimum 1 APT** - Funds will be held in our secure system wallet
+5. **Complete registration** - Your wallet will be registered for 1P authentication
 """)
 
 # Step 1: UTF-8 Character Selection
@@ -247,10 +250,50 @@ if app.selected_secret:
     app.direction_mapping = direction_mapping
     st.session_state.app = app
 
-# Step 3: Balance Transfer
+# Step 3: Authentication
 if app.selected_secret and app.direction_mapping:
     st.markdown("---")
-    st.subheader("💰 Step 3: Transfer Funds for Registration")
+    st.subheader("🔐 Step 3: Authenticate Yourself")
+
+    st.markdown("""Verify your identity using the 1P visual grid system. This ensures you remember your secret
+    character and color-to-direction mapping before proceeding with fund transfer.""")
+
+    # Show authentication challenge using the component
+    auth_success = one_round_auth(
+        secret=app.selected_secret,
+        direction_mapping=app.direction_mapping,
+        colors=COLORS,
+        direction_map=DIRECTION_MAP,
+        domains=DOMAINS,
+        session_key="registration_auth"
+    )
+
+    if not auth_success:
+        # If auth is not completed or failed, stop here
+        if "registration_auth" in st.session_state and st.session_state["registration_auth"]["completed"]:
+            if not st.session_state["registration_auth"]["success"]:
+                st.error("❌ Authentication failed! Please try again.")
+                if st.button("🔄 Try Again", key="auth_retry"):
+                    # Reset auth state
+                    st.session_state["registration_auth"] = {
+                        'started': False,
+                        'completed': False,
+                        'success': False,
+                        'grid_html': None,
+                        'expected': None
+                    }
+                    st.rerun()
+        st.stop()
+
+    st.success("✅ Authentication successful!")
+
+# Step 4: Balance Transfer
+if app.selected_secret and app.direction_mapping and \
+   "registration_auth" in st.session_state and \
+   st.session_state["registration_auth"]["completed"] and \
+   st.session_state["registration_auth"]["success"]:
+    st.markdown("---")
+    st.subheader("💰 Step 4: Transfer Funds for Registration")
 
     st.markdown("**Why transfer funds?**")
     st.markdown("""
@@ -313,9 +356,9 @@ if app.selected_secret and app.direction_mapping:
         st.markdown("<br>", unsafe_allow_html=True)  # Spacing
         leave_for_gas = st.checkbox("Leave 0.1 APT for gas fees", value=True)
 
-    # Step 4: Complete Registration
+    # Step 5: Complete Registration
     st.markdown("---")
-    st.subheader("✅ Step 4: Complete Registration")
+    st.subheader("✅ Step 5: Complete Registration")
 
     st.warning("⚠️ **Final Check:**")
     st.markdown(f"""
@@ -340,45 +383,18 @@ if app.selected_secret and app.direction_mapping:
                     st.warning("Please get more APT from the faucet or reduce the transfer amount.")
                     st.stop()
 
-                # Create transfer transaction
-                amount_in_octas = int(transfer_amount * 100000000)  # Convert APT to octas
-
-                # Create BCS serializer for the amount
-                serializer = Serializer()
-                serializer.u64(amount_in_octas)
-                serialized_amount = serializer.output()
-
-                # Make the transaction process more robust
-                try:
-                    payload = EntryFunction.natural(
-                        "0x1::coin",
-                        "transfer",
-                        ["0x1::aptos_coin::AptosCoin"],
-                        [SYSTEM_WALLET_ADDRESS, serialized_amount]
+                # Use our abstracted transfer function
+                with st.spinner("Creating and processing transaction..."):
+                    success, txn_hash, error_msg = transfer_apt_sync(
+                        sender_account=app.wallet,
+                        recipient_address=SYSTEM_WALLET_ADDRESS,
+                        amount_apt=transfer_amount
                     )
 
-                    # Create and submit transaction - handling potential async issues
-                    from utils.aptos_sync import RestClientSync
-                    # Use the sync wrapper to ensure compatibility with streamlit
-                    sync_client = RestClientSync("https://testnet.aptoslabs.com/v1")
-
-                    # Create and process the transaction
-                    with st.spinner("Creating transaction..."):
-                        txn = sync_client.create_transaction(app.wallet.address(), payload)
-
-                    with st.spinner("Signing transaction..."):
-                        signed_txn = app.wallet.sign_transaction(txn)
-
-                    with st.spinner("Submitting transaction..."):
-                        txn_hash = sync_client.submit_transaction(signed_txn)
-
-                    with st.spinner("Waiting for confirmation..."):
-                        sync_client.wait_for_transaction(txn_hash, timeout=30)
-
-                except Exception as e:
-                    st.error(f"Transaction failed: {str(e)}")
-                    st.warning("Please check your balance and try again.")
-                    st.stop()
+                    if not success:
+                        st.error(f"Transaction failed: {error_msg}")
+                        st.warning("Please check your balance and try again.")
+                        st.stop()
 
                 # Mark as registered and record the transaction
                 app.is_registered = True
