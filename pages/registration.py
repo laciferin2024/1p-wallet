@@ -260,7 +260,7 @@ if app.selected_secret and app.direction_mapping:
     # Check current balance automatically
     with st.spinner("Checking wallet balance..."):
         try:
-            # Use the sync helper method
+            # Try to use the sync helper method
             apt_balance = app.get_account_balance_sync(app.wallet.address())
 
             # Display balance with colorful metric
@@ -280,9 +280,19 @@ if app.selected_secret and app.direction_mapping:
                 st.rerun()
 
         except Exception as e:
-            st.error(f"Failed to check balance: {str(e)}")
-            st.info("This might happen if the account hasn't been funded yet. Try using the faucet first.")
-            st.stop()
+            st.error(f"Balance check error: {str(e)}")
+            st.warning("Unable to check balance automatically. You can proceed if you know you have sufficient funds (at least 1 APT).")
+
+            # Add manual balance check option
+            if st.button("Try Again", type="secondary"):
+                st.rerun()
+
+            # Provide option to continue anyway
+            st.info("If you're certain you have at least 1 APT, you can continue with the registration.")
+
+            # Option to proceed anyway
+            if not st.checkbox("I understand the risks and want to proceed anyway"):
+                st.stop()
 
     # Transfer amount selection
     col1, col2 = st.columns(2)
@@ -335,28 +345,58 @@ if app.selected_secret and app.direction_mapping:
                 serializer.u64(amount_in_octas)
                 serialized_amount = serializer.output()
 
-                payload = EntryFunction.natural(
-                    "0x1::coin",
-                    "transfer",
-                    ["0x1::aptos_coin::AptosCoin"],
-                    [SYSTEM_WALLET_ADDRESS, serialized_amount]
+                # Make the transaction process more robust
+                try:
+                    payload = EntryFunction.natural(
+                        "0x1::coin",
+                        "transfer",
+                        ["0x1::aptos_coin::AptosCoin"],
+                        [SYSTEM_WALLET_ADDRESS, serialized_amount]
+                    )
+
+                    # Create and submit transaction - handling potential async issues
+                    from utils.aptos_sync import RestClientSync
+                    # Use the sync wrapper to ensure compatibility with streamlit
+                    sync_client = RestClientSync("https://testnet.aptoslabs.com/v1")
+
+                    # Create and process the transaction
+                    with st.spinner("Creating transaction..."):
+                        txn = sync_client.create_transaction(app.wallet.address(), payload)
+
+                    with st.spinner("Signing transaction..."):
+                        signed_txn = app.wallet.sign_transaction(txn)
+
+                    with st.spinner("Submitting transaction..."):
+                        txn_hash = sync_client.submit_transaction(signed_txn)
+
+                    with st.spinner("Waiting for confirmation..."):
+                        sync_client.wait_for_transaction(txn_hash, timeout=30)
+
+                except Exception as e:
+                    st.error(f"Transaction failed: {str(e)}")
+                    st.warning("Please check your balance and try again.")
+                    st.stop()
+
+                # Mark as registered and record the transaction
+                app.is_registered = True
+
+                # Record transaction in our history
+                app.add_transaction(
+                    txn_hash=txn_hash,
+                    sender=str(app.wallet.address()),
+                    recipient=SYSTEM_WALLET_ADDRESS,
+                    amount=transfer_amount,
+                    is_credit=False,
+                    status="completed",
+                    description="1P Wallet Registration"
                 )
 
-                # Create and submit transaction
-                txn = app.client.create_transaction(app.wallet.address(), payload)
-                signed_txn = app.wallet.sign_transaction(txn)
-                txn_hash = app.client.submit_transaction(signed_txn)
-
-                # Wait for transaction confirmation
-                app.client.wait_for_transaction(txn_hash)
-
-                # Mark as registered
-                app.is_registered = True
                 st.session_state.app = app
 
                 st.success("🎉 Registration completed successfully!")
                 st.success(f"✅ Transaction Hash: `{txn_hash}`")
                 st.info("**Next:** Go to 'Authentication' to verify your 1P secret")
+                st.markdown("📋 You can view this transaction in your **Transaction History** page")
 
                 # Show registration summary
                 with st.expander("Registration Summary", expanded=True):

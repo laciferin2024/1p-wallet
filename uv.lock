@@ -14,6 +14,7 @@ dependencies = [
     { name = "aptos-sdk" },
     { name = "dataclasses-json" },
     { name = "ecdsa" },
+    { name = "nest-asyncio" },
     { name = "pyotp" },
     { name = "python-dotenv" },
     { name = "streamlit" },
@@ -31,6 +32,7 @@ requires-dist = [
     { name = "aptos-sdk", specifier = ">=0.11.0" },
     { name = "dataclasses-json", specifier = ">=0.6.7,<0.7" },
     { name = "ecdsa", specifier = ">=0.19.1" },
+    { name = "nest-asyncio", specifier = ">=1.6.0" },
     { name = "pyotp", specifier = ">=2.0.0,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0,<8" },
     { name = "python-dotenv", specifier = ">=1.0.0,<2" },
@@ -820,6 +822,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/7b/b8/3cb005704866f1cc19e8d6b15d0467255821ba12d82f20ea15912672e54c/narwhals-2.5.0.tar.gz", hash = "sha256:8ae0b6f39597f14c0dc52afc98949d6f8be89b5af402d2d98101d2f7d3561418", size = 558573 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/f8/5a/22741c5c0e5f6e8050242bfc2052ba68bc94b1735ed5bca35404d136d6ec/narwhals-2.5.0-py3-none-any.whl", hash = "sha256:7e213f9ca7db3f8bf6f7eff35eaee6a1cf80902997e1b78d49b7755775d8f423", size = 407296 },
+]
+
+[[package]]
+name = "nest-asyncio"
+version = "1.6.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/83/f8/51569ac65d696c8ecbee95938f89d4abf00f47d58d48f6fbabfe8f0baefe/nest_asyncio-1.6.0.tar.gz", hash = "sha256:6f172d5449aca15afd6c646851f4e31e02c598d553a667e38cafa997cfec55fe", size = 7418 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a0/c4/c2971a3ba4c6103a3d10c4b0f24f461ddc027f0f09763220cf35ca1401b3/nest_asyncio-1.6.0-py3-none-any.whl", hash = "sha256:87af6efd6b5e897c81050477ef65c62e2b2f35d51703cae01aff2905b1852e1c", size = 5195 },
 ]
 
 [[package]]

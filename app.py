@@ -1,3 +1,4 @@
+import logging
 import os
 from dataclasses import dataclass, field
 import time
@@ -81,6 +82,18 @@ class SessionState:
     high_abuse: bool = False
 
 @dataclass
+class Transaction:
+    """Represents a single transaction in the system"""
+    txn_hash: str
+    sender: str
+    recipient: str
+    amount: float  # Amount in APT
+    timestamp: float  # Unix timestamp
+    is_credit: bool  # True if receiving funds, False if sending
+    status: str  # "completed", "pending", "failed"
+    description: str = ""  # Optional description
+
+@dataclass
 class App:
     queue: Queue = field(default_factory=Queue)
     wallet: Optional[Account] = None
@@ -92,10 +105,12 @@ class App:
     direction_mapping: Dict[str, str] = field(default_factory=dict)
     recent_characters: List[str] = field(default_factory=list)
     favorite_characters: List[str] = field(default_factory=list)
+    transactions: List[Transaction] = field(default_factory=list)  # Track all transactions
 
     async def get_account_balance(self, address):
         """Get account balance in APT"""
         if not self.wallet:
+            logging.error("No wallet connected; cannot fetch balance.")
             return 0
 
         try:
@@ -105,14 +120,169 @@ class App:
                 if resource['type'] == '0x1::coin::CoinStore<0x1::aptos_coin::AptosCoin>':
                     apt_balance = int(resource['data']['coin']['value']) / 100000000  # Convert from octas to APT
                     break
+            logging.info("Fetch resources , got resources:", resources)
+            logging.info(f"Fetched balance for {address}: {apt_balance} APT")
             return apt_balance
         except Exception as e:
+            logging.error(f"Error fetching balance for {address}: {str(e)}")
             raise Exception(f"Failed to check balance: {str(e)}")
 
     def get_account_balance_sync(self, address):
         """Synchronous wrapper for get_account_balance"""
-        import asyncio
-        return asyncio.run(self.get_account_balance(address))
+        try:
+            import asyncio
+            from utils.aptos_sync import _run_coro_sync
+            return _run_coro_sync(self.get_account_balance(address))
+        except Exception as e:
+            error_msg = str(e)
+            if "Event loop is closed" in error_msg:
+                # If event loop is closed, create a new one
+                import nest_asyncio
+                import asyncio
+
+                try:
+                    nest_asyncio.apply()  # Allow nested event loops
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    result = loop.run_until_complete(self.get_account_balance(address))
+                    loop.close()
+                    return result
+                except ImportError:
+                    # If nest_asyncio isn't available, fall back to manual alternative
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        result = loop.run_until_complete(self.get_account_balance(address))
+                        return result
+                    finally:
+                        loop.close()
+            else:
+                # Re-raise other errors
+                raise
+
+    def add_transaction(self, txn_hash, sender, recipient, amount, is_credit=None, status="completed", description=""):
+        """Add a transaction to the transaction history"""
+        if is_credit is None:
+            # Determine if this is a credit or debit based on sender/recipient
+            if self.wallet:
+                is_credit = recipient == str(self.wallet.address())
+            else:
+                is_credit = False
+
+        # Create new transaction record
+        txn = Transaction(
+            txn_hash=txn_hash,
+            sender=sender,
+            recipient=recipient,
+            amount=amount,
+            timestamp=time.time(),
+            is_credit=is_credit,
+            status=status,
+            description=description
+        )
+
+        # Add to transaction list
+        self.transactions.append(txn)
+        logging.info(f"Added transaction to history: {txn_hash} {'Credit' if is_credit else 'Debit'} {amount} APT")
+
+        return txn
+
+    async def fetch_account_transactions(self, address=None, limit=20):
+        """Fetch transaction history for the given address from the blockchain"""
+        if not address and self.wallet:
+            address = str(self.wallet.address())
+
+        if not address:
+            logging.error("No wallet address provided for transaction history")
+            return []
+
+        try:
+            # Use Aptos SDK to get account transactions
+            from utils.aptos_sync import _run_coro_sync
+            transactions = await self.client.get_account_transactions(address, limit=limit)
+
+            # Process transactions to identify credits and debits
+            processed_txns = []
+            for txn in transactions:
+                try:
+                    # Extract basic transaction data
+                    txn_hash = txn.get('hash', '')
+                    txn_version = txn.get('version', 0)
+                    sender = txn.get('sender', '')
+                    timestamp = txn.get('timestamp', 0) / 1000000  # Convert to seconds
+
+                    # Extract payload data to determine transaction type and amount
+                    payload = txn.get('payload', {})
+                    function = payload.get('function', '')
+
+                    # Only process coin transfers for now
+                    if '0x1::coin::transfer' in function:
+                        args = payload.get('arguments', [])
+                        if len(args) >= 2:
+                            recipient = args[0]
+                            amount_octas = int(args[1])
+                            amount_apt = amount_octas / 100000000  # Convert octas to APT
+
+                            # Determine if credit or debit
+                            is_credit = recipient == address
+
+                            # Create transaction object
+                            transaction = Transaction(
+                                txn_hash=txn_hash,
+                                sender=sender,
+                                recipient=recipient,
+                                amount=amount_apt,
+                                timestamp=timestamp,
+                                is_credit=is_credit,
+                                status="completed",
+                                description=f"Transaction {txn_version}"
+                            )
+
+                            processed_txns.append(transaction)
+
+                except Exception as e:
+                    logging.error(f"Error processing transaction: {str(e)}")
+                    continue
+
+            return processed_txns
+
+        except Exception as e:
+            logging.error(f"Error fetching transactions for {address}: {str(e)}")
+            return []
+
+    def fetch_account_transactions_sync(self, address=None, limit=20):
+        """Synchronous wrapper for fetch_account_transactions"""
+        try:
+            from utils.aptos_sync import _run_coro_sync
+            return _run_coro_sync(self.fetch_account_transactions(address, limit))
+        except Exception as e:
+            logging.error(f"Error fetching transactions synchronously: {str(e)}")
+            return []
+
+    def update_transaction_history(self):
+        """Update the transaction history from the blockchain"""
+        if not self.wallet:
+            logging.error("No wallet connected; cannot update transaction history")
+            return False
+
+        try:
+            # Fetch transactions from blockchain
+            new_txns = self.fetch_account_transactions_sync(str(self.wallet.address()))
+
+            # Add new transactions that aren't already in our list
+            existing_txn_hashes = {txn.txn_hash for txn in self.transactions}
+
+            for txn in new_txns:
+                if txn.txn_hash not in existing_txn_hashes:
+                    self.transactions.append(txn)
+
+            # Sort by timestamp, most recent first
+            self.transactions.sort(key=lambda x: x.timestamp, reverse=True)
+
+            return True
+        except Exception as e:
+            logging.error(f"Error updating transaction history: {str(e)}")
+            return False
 
     def __post_init__(self):
         # Initialize system wallet
@@ -152,6 +322,10 @@ pages = {
     "🔐 Authentication": "authentication",
     "👤 Account": "account",
 }
+
+# Show Transaction History once wallet is connected
+if app.wallet:
+    pages["📋 Transaction History"] = "transaction_history"
 
 # Only show Manage Wallet if authenticated
 if app.is_authenticated:
@@ -267,6 +441,12 @@ else:
 
     elif current_page == "account":
         spec = importlib.util.spec_from_file_location("account", "pages/account.py")
+        page_module = importlib.util.module_from_spec(spec)
+        page_module.__dict__.update(page_globals)
+        spec.loader.exec_module(page_module)
+
+    elif current_page == "transaction_history":
+        spec = importlib.util.spec_from_file_location("transaction_history", "pages/transaction_history.py")
         page_module = importlib.util.module_from_spec(spec)
         page_module.__dict__.update(page_globals)
         spec.loader.exec_module(page_module)

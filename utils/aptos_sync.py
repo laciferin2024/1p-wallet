@@ -46,6 +46,10 @@ class RestClientSync:
     def wait_for_transaction(self, txn_hash: str, timeout: int = 30) -> Any:
         return _run_coro_sync(self._client.wait_for_transaction(txn_hash, timeout))
 
+    def get_account_transactions(self, address: str, limit: int = 20) -> Any:
+        """Fetch transaction history for an account"""
+        return _run_coro_sync(self._client.get_account_transactions(address, limit=limit))
+
     def __getattr__(self, name: str):
         # Fallback to underlying client attributes if needed
         return getattr(self._client, name)

@@ -81,23 +81,54 @@ else:
                     serializer.u64(amount_in_octas)
                     serialized_amount = serializer.output()
 
-                    payload = EntryFunction.natural(
-                        "0x1::coin",
-                        "transfer",
-                        ["0x1::aptos_coin::AptosCoin"],
-                        [recipient_address, serialized_amount]
+                    # Make the transaction process more robust
+                    try:
+                        payload = EntryFunction.natural(
+                            "0x1::coin",
+                            "transfer",
+                            ["0x1::aptos_coin::AptosCoin"],
+                            [recipient_address, serialized_amount]
+                        )
+
+                        # Create and submit transaction - handling potential async issues
+                        from utils.aptos_sync import RestClientSync
+                        # Use the sync wrapper to ensure compatibility with streamlit
+                        sync_client = RestClientSync("https://testnet.aptoslabs.com/v1")
+
+                        # Create and process the transaction
+                        with st.spinner("Creating transaction..."):
+                            txn = sync_client.create_transaction(app.system_wallet.address(), payload)
+
+                        with st.spinner("Signing transaction..."):
+                            signed_txn = app.system_wallet.sign_transaction(txn)
+
+                        with st.spinner("Submitting transaction..."):
+                            txn_hash = sync_client.submit_transaction(signed_txn)
+
+                        with st.spinner("Waiting for confirmation..."):
+                            sync_client.wait_for_transaction(txn_hash, timeout=30)
+
+                    except Exception as e:
+                        st.error(f"Transaction failed: {str(e)}")
+                        st.warning("Please try again later.")
+                        return
+
+                    # Record transaction in our history
+                    app.add_transaction(
+                        txn_hash=txn_hash,
+                        sender=str(app.system_wallet.address()),
+                        recipient=recipient_address,
+                        amount=amount,
+                        is_credit=False,
+                        status="completed",
+                        description=f"Transfer to {recipient_address[:10]}..."
                     )
 
-                    # Create transaction with system wallet
-                    txn = app.client.create_transaction(app.system_wallet.address(), payload)
-                    signed_txn = app.system_wallet.sign_transaction(txn)
-                    txn_hash = app.client.submit_transaction(signed_txn)
-
-                    # Wait for confirmation
-                    app.client.wait_for_transaction(txn_hash)
+                    st.session_state.app = app
 
                     st.success("✅ Transaction sent successfully!")
                     st.success(f"📋 Transaction Hash: `{txn_hash}`")
+                    st.markdown("📋 You can view this transaction in your **Transaction History** page")
 
                     # Show transaction details
                     with st.expander("Transaction Details", expanded=True):
