@@ -13,9 +13,11 @@ source = { editable = "." }
 dependencies = [
     { name = "aptos-sdk" },
     { name = "dataclasses-json" },
+    { name = "ecdsa" },
     { name = "pyotp" },
     { name = "python-dotenv" },
     { name = "streamlit" },
+    { name = "streamlit-javascript" },
     { name = "web3" },
 ]
 
@@ -28,10 +30,12 @@ dev = [
 requires-dist = [
     { name = "aptos-sdk", specifier = ">=0.11.0" },
     { name = "dataclasses-json", specifier = ">=0.6.7,<0.7" },
+    { name = "ecdsa", specifier = ">=0.19.1" },
     { name = "pyotp", specifier = ">=2.0.0,<3" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0,<8" },
     { name = "python-dotenv", specifier = ">=1.0.0,<2" },
     { name = "streamlit", specifier = ">=1.49.0,<2" },
+    { name = "streamlit-javascript", specifier = ">=0.1.5" },
     { name = "web3", specifier = ">=6.0.0,<7" },
 ]
 
@@ -1499,6 +1503,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/d6/f6/f7d3a0146577c1918439d3163707040f7111a7d2e7e2c73fa7adeb169c06/streamlit-1.50.0.tar.gz", hash = "sha256:87221d568aac585274a05ef18a378b03df332b93e08103fffcf3cd84d852af46", size = 9664808 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/2a/38/991bbf9fa3ed3d9c8e69265fc449bdaade8131c7f0f750dbd388c3c477dc/streamlit-1.50.0-py3-none-any.whl", hash = "sha256:9403b8f94c0a89f80cf679c2fcc803d9a6951e0fba542e7611995de3f67b4bb3", size = 10068477 },
+]
+
+[[package]]
+name = "streamlit-javascript"
+version = "0.1.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "streamlit" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/a5/69/723ebc7a58057b1e6f54d0c23c86488054d756e0e470daf4db703fe02a63/streamlit-javascript-0.1.5.tar.gz", hash = "sha256:9da5176522a0acf2c39d3b0bec9f856fdd8ea3c70bb1066841a546ab1348ae1d", size = 512374 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/87/81/0c9e9e4d2dab97224efe105ba44f47b259f37d8e7673b94f5b5523fe2c8f/streamlit_javascript-0.1.5-py3-none-any.whl", hash = "sha256:36ca4d8c46fd5b6526d1a705530472e03cb6e5bb24694330649f21d5c436d280", size = 518387 },
 ]
 
 [[package]]

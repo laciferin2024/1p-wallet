@@ -32,3 +32,7 @@ Notes:
 Notes from runtime:
 - Streamlit recommends installing `watchdog` for better file-change performance (`pip install watchdog`).
 - It is recommended that private keys are AIP-80 compliant: https://github.com/aptos-foundation/AIPs/blob/main/aips/aip-80.md
+- For the one-click browser localStorage save/restore feature, install `streamlit-javascript`:
+	```bash
+	pip install streamlit-javascript
+	```

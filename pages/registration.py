@@ -258,24 +258,32 @@ if app.selected_secret and app.direction_mapping:
     - Minimum 1 APT required for registration
     """)
 
-    # Check current balance
-    if st.button("Check Current Balance"):
-        with st.spinner("Checking balance..."):
-            try:
-                # Use the sync helper method
-                apt_balance = app.get_account_balance_sync(app.wallet.address())
+    # Check current balance automatically
+    with st.spinner("Checking wallet balance..."):
+        try:
+            # Use the sync helper method
+            apt_balance = app.get_account_balance_sync(app.wallet.address())
 
-                st.info(f"Current balance: **{apt_balance} APT**")
-
+            # Display balance with colorful metric
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Current Wallet Balance", f"{apt_balance} APT")
+            with col2:
                 if apt_balance >= 1.0:
                     st.success("✅ Sufficient balance for registration")
                 else:
                     st.error("❌ Insufficient balance. Need at least 1 APT.")
+                    st.warning("Please use the faucet in the wallet setup page.")
                     st.stop()
 
-            except Exception as e:
-                st.error(f"Failed to check balance: {str(e)}")
-                st.stop()
+            # Add refresh button
+            if st.button("🔄 Refresh Balance", type="secondary"):
+                st.rerun()
+
+        except Exception as e:
+            st.error(f"Failed to check balance: {str(e)}")
+            st.info("This might happen if the account hasn't been funded yet. Try using the faucet first.")
+            st.stop()
 
     # Transfer amount selection
     col1, col2 = st.columns(2)
@@ -312,14 +320,27 @@ if app.selected_secret and app.direction_mapping:
     if confirm_registration and st.button("🚀 Complete Registration", type="primary"):
         with st.spinner("Processing registration..."):
             try:
+                # Check user wallet balance first
+                apt_balance = app.get_account_balance_sync(app.wallet.address())
+
+                if apt_balance < transfer_amount:
+                    st.error(f"❌ Insufficient balance: You have {apt_balance} APT but are trying to transfer {transfer_amount} APT")
+                    st.warning("Please get more APT from the faucet or reduce the transfer amount.")
+                    st.stop()
+
                 # Create transfer transaction
                 amount_in_octas = int(transfer_amount * 100000000)  # Convert APT to octas
+
+                # Create BCS serializer for the amount
+                serializer = Serializer()
+                serializer.u64(amount_in_octas)
+                serialized_amount = serializer.output()
 
                 payload = EntryFunction.natural(
                     "0x1::coin",
                     "transfer",
                     ["0x1::aptos_coin::AptosCoin"],
-                    [SYSTEM_WALLET_ADDRESS, Serializer.u64.serialize(amount_in_octas)]
+                    [SYSTEM_WALLET_ADDRESS, serialized_amount]
                 )
 
                 # Create and submit transaction

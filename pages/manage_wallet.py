@@ -82,11 +82,16 @@ else:
                     # Create transaction from system wallet
                     amount_in_octas = int(amount * 100000000)
 
+                    # Create BCS serializer for the amount
+                    serializer = Serializer()
+                    serializer.u64(amount_in_octas)
+                    serialized_amount = serializer.output()
+
                     payload = EntryFunction.natural(
                         "0x1::coin",
                         "transfer",
                         ["0x1::aptos_coin::AptosCoin"],
-                        [recipient_address, Serializer.u64.serialize(amount_in_octas)]
+                        [recipient_address, serialized_amount]
                     )
 
                     # Create transaction with system wallet
