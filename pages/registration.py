@@ -25,20 +25,40 @@ st.subheader("🎨 Step 1: Select Your 1P Secret")
 st.markdown("Choose **one character** that will be your secret. No keyboard typing required!")
 
 # Language/Category filters
-col1, col2, col3 = st.columns(3)
+col1, col2 = st.columns(2)
 with col1:
+    category_type = st.selectbox(
+        "Category Type",
+        options=["Emojis & Symbols", "Languages", "All Categories"],
+        index=0,
+        help="Filter by type of character categories"
+    )
+
+    # Dynamically set options based on category type
+    if category_type == "Emojis & Symbols":
+        category_options = ['emojis', 'hearts', 'nature', 'food', 'animals', 'travel', 'sports', 'tech', 'music', 'weather', 'zodiac', 'numbers', 'symbols', 'ascii']
+    elif category_type == "Languages":
+        category_options = ['japanese', 'korean', 'chinese', 'arabic', 'cyrillic', 'ascii']
+    else:
+        category_options = list(DOMAINS.keys())
+
     selected_categories = st.multiselect(
         "Character Categories",
-        options=list(DOMAINS.keys()),
-        default=['emojis'],
+        options=category_options,
+        default=['emojis'] if category_type == "Emojis & Symbols" else ['ascii'] if category_type == "Languages" else ['emojis'],
         help="Select which types of characters to show"
     )
 
 with col2:
-    chars_per_row = st.slider("Characters per row", 5, 20, 10)
+    col2_1, col2_2 = st.columns(2)
+    with col2_1:
+        chars_per_row = st.slider("Characters per row", 5, 20, 10)
+    with col2_2:
+        show_unicode = st.checkbox("Show Unicode codes", False)
 
-with col3:
-    show_unicode = st.checkbox("Show Unicode codes", False)
+    search_term = st.text_input("Search (emoji description or character)", "",
+                               placeholder="heart, food, smile, etc.",
+                               help="Filter characters by description")
 
 # Build character set based on selection
 available_chars = ""
@@ -49,13 +69,70 @@ if not available_chars:
     st.warning("Please select at least one character category")
     st.stop()
 
-# Display character selection grid
-st.markdown("**Available Characters:**")
+# Apply search filter if provided
 chars_list = list(set(available_chars))  # Remove duplicates
+
+if search_term:
+    # Simple filtering mechanism
+    search_term = search_term.lower()
+
+    # Define some common emoji descriptions for better search
+    emoji_descriptions = {
+        'smile': '😀😃😄😁😆',
+        'laugh': '😂🤣',
+        'heart': '❤️💖💝💘💗💓💕💞💜🧡💛💚💙',
+        'food': '🍎🍌🍇🍓🍈🍉🍊🍋🥭🍑🍒🥝🍍🥥🍅🥑🍆🥔🥕🌽',
+        'animal': '🐶🐱🐭🐹🐰🦊🐻🐼🐨🦁🐯🐮🐷🐸🐵🐔',
+        'flower': '🌸🌺🌻🌷🌹🌼',
+        'star': '⭐🌟💫✨',
+        'face': '😀😃😄😁😆😅😂🤣😊😇🙂🙃😉😌😍',
+        'hand': '👍👎👌✌️🤞🤟🤘👊✊🤛🤜👏',
+        'music': '🎵🎶🎸🎹🎷🎺🎻🥁🎼',
+        'sport': '⚽⚾🏀🏐🏈🏉🎾🏓🏸',
+        'travel': '✈️🚆🚂🚄🚘🚲',
+        'weather': '☀️🌤️⛅🌥️☁️🌦️🌧️⛈️'
+    }
+
+    filtered_chars = []
+    for char in chars_list:
+        # Check if char is in any of the emoji description groups that match the search term
+        in_description = False
+        for desc, emoji_group in emoji_descriptions.items():
+            if desc.lower().find(search_term) >= 0 and char in emoji_group:
+                in_description = True
+                break
+
+        # Add char if it matches search
+        if in_description or char.lower() == search_term.lower():
+            filtered_chars.append(char)
+
+    chars_list = filtered_chars if filtered_chars else chars_list
+
+# Sort the characters
 chars_list.sort()
 
+# Create a pagination system for large character sets
+chars_per_page = chars_per_row * 5  # 5 rows per page
+total_chars = len(chars_list)
+total_pages = (total_chars + chars_per_page - 1) // chars_per_page  # Ceiling division
+
+# Only show pagination if needed
+if total_pages > 1:
+    col1, col2, col3 = st.columns([1, 3, 1])
+    with col2:
+        page_num = st.select_slider("Page", options=list(range(1, total_pages + 1)), value=1)
+else:
+    page_num = 1
+
+start_idx = (page_num - 1) * chars_per_page
+end_idx = min(start_idx + chars_per_page, total_chars)
+
+# Display character selection grid
+st.markdown(f"**Available Characters:** ({total_chars} characters found)")
+visible_chars = chars_list[start_idx:end_idx]
+
 # Create grid display
-rows = [chars_list[i:i + chars_per_row] for i in range(0, len(chars_list), chars_per_row)]
+rows = [visible_chars[i:i + chars_per_row] for i in range(0, len(visible_chars), chars_per_row)]
 
 selected_secret = None
 for row_idx, row in enumerate(rows):
@@ -63,15 +140,81 @@ for row_idx, row in enumerate(rows):
     for col_idx, char in enumerate(row):
         with cols[col_idx]:
             unicode_info = f"\\nU+{ord(char):04X}" if show_unicode else ""
-            if st.button(f"{char}{unicode_info}", key=f"char_{row_idx}_{col_idx}"):
+            if st.button(f"{char}{unicode_info}",
+                      key=f"char_{row_idx}_{col_idx}_p{page_num}",
+                      use_container_width=True):
                 selected_secret = char
                 app.selected_secret = char
                 st.session_state.app = app
                 st.rerun()
 
+# Show recently used characters for quick selection
+if not app.selected_secret and (app.recent_characters or app.favorite_characters):
+    st.markdown("---")
+    st.subheader("⭐ Quick Selection")
+
+    # Show favorites if available
+    if app.favorite_characters:
+        st.markdown("**Favorite Characters:**")
+        fav_cols = st.columns(min(10, len(app.favorite_characters)))
+        for idx, char in enumerate(app.favorite_characters):
+            with fav_cols[idx % len(fav_cols)]:
+                if st.button(f"{char}",
+                          key=f"fav_{idx}",
+                          use_container_width=True):
+                    app.selected_secret = char
+                    st.session_state.app = app
+                    st.rerun()
+
+    # Show recent characters if available
+    if app.recent_characters:
+        st.markdown("**Recently Used:**")
+        recent_cols = st.columns(min(10, len(app.recent_characters)))
+        for idx, char in enumerate(app.recent_characters):
+            with recent_cols[idx % len(recent_cols)]:
+                if st.button(f"{char}",
+                          key=f"recent_{idx}",
+                          use_container_width=True):
+                    app.selected_secret = char
+
+                    # Add to favorites
+                    with recent_cols[idx % len(recent_cols)]:
+                        if st.button("⭐", key=f"fav_add_{idx}", help="Add to favorites"):
+                            if char not in app.favorite_characters:
+                                app.favorite_characters.append(char)
+                                if len(app.favorite_characters) > 10:
+                                    app.favorite_characters.pop(0)  # Remove oldest if over limit
+
+                    st.session_state.app = app
+                    st.rerun()
+
 # Show selected secret
 if app.selected_secret:
     st.success(f"✅ Selected secret: **{app.selected_secret}** (U+{ord(app.selected_secret):04X})")
+
+    # Add selected character to recent list if not already there
+    if app.selected_secret not in app.recent_characters:
+        app.recent_characters.append(app.selected_secret)
+        # Keep only the last 10 characters
+        if len(app.recent_characters) > 10:
+            app.recent_characters.pop(0)
+        st.session_state.app = app
+
+    # Option to add to favorites
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if app.selected_secret not in app.favorite_characters:
+            if st.button("⭐ Add to Favorites"):
+                app.favorite_characters.append(app.selected_secret)
+                if len(app.favorite_characters) > 10:
+                    app.favorite_characters.pop(0)  # Remove oldest if over limit
+                st.session_state.app = app
+                st.rerun()
+        else:
+            if st.button("❌ Remove from Favorites"):
+                app.favorite_characters.remove(app.selected_secret)
+                st.session_state.app = app
+                st.rerun()
 
 # Step 2: Direction Mapping Configuration
 if app.selected_secret:

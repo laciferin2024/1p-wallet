@@ -70,13 +70,58 @@ if app.wallet:
 
     with col2:
         if st.button("Request Testnet APT", type="secondary"):
-            st.info("🔄 Requesting tokens from faucet...")
-            st.markdown("""
-            **Manual Faucet Options:**
-            1. Visit [Aptos Testnet Faucet](https://www.aptosfaucet.com/)
-            2. Paste your address: `{}`
-            3. Click "Submit" to receive test APT
-            """.format(app.wallet.address()))
+            with st.spinner("🔄 Requesting tokens from faucet..."):
+                try:
+                    # Try to request tokens directly from Aptos testnet faucet
+                    import requests
+                    import json
+
+                    # Default faucet URL for Aptos testnet
+                    faucet_url = "https://faucet.testnet.aptoslabs.com/v1/fund"
+
+                    # Prepare the request payload
+                    payload = {
+                        "address": str(app.wallet.address()),
+                        "amount": 100000000,  # 1 APT in octas
+                    }
+
+                    # Make the request to the faucet
+                    response = requests.post(
+                        faucet_url,
+                        json=payload,
+                        headers={"Content-Type": "application/json"}
+                    )
+
+                    if response.status_code == 200:
+                        result = response.json()
+                        txn_hash = result.get('txn_hash', 'Unknown')
+                        st.success(f"✅ Successfully requested tokens!")
+                        st.info(f"Transaction hash: `{txn_hash}`")
+
+                        # Add refresh button to check balance
+                        if st.button("Check Updated Balance"):
+                            st.rerun()
+                    else:
+                        st.error(f"Failed to request tokens: {response.text}")
+                        st.info("Try using the manual faucet option below")
+
+                        # Provide manual instructions as fallback
+                        st.markdown("""
+                        **Manual Faucet Options:**
+                        1. Visit [Aptos Testnet Faucet](https://www.aptosfaucet.com/)
+                        2. Paste your address: `{}`
+                        3. Click "Submit" to receive test APT
+                        """.format(app.wallet.address()))
+
+                except Exception as e:
+                    st.error(f"Error requesting tokens: {str(e)}")
+                    # Provide manual instructions as fallback
+                    st.markdown("""
+                    **Manual Faucet Options:**
+                    1. Visit [Aptos Testnet Faucet](https://www.aptosfaucet.com/)
+                    2. Paste your address: `{}`
+                    3. Click "Submit" to receive test APT
+                    """.format(app.wallet.address()))
 
 # Balance checker
 if app.wallet:
