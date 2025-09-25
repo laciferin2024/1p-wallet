@@ -15,14 +15,14 @@ keywords = ["streamlit", "web3", "2fa"]
 dependencies = [
     "streamlit>=1.49.0,<2",
     "dataclasses-json>=0.6.7,<0.7",
-    "web3>=6.0.0,<7",  # For Web3 interactions
-    "python-dotenv>=1.0.0,<2", # For managing environment variables
-    "pyotp>=2.0.0,<3" # For Time-based One-Time Password algorithm (2FA)
+    "web3>=6.0.0,<7",               # For Web3 interactions
+    "python-dotenv>=1.0.0,<2",      # For managing environment variables
+    "pyotp>=2.0.0,<3",              # For Time-based One-Time Password algorithm (2FA)
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0,<8" # For testing
+    "pytest>=7.0.0,<8", # For testing
 ]
 
 [project.urls]
@@ -30,3 +30,13 @@ Homepage = "https://1p-wallet.streamlit.app"
 Repository = ""
 Documentation = ""
 "Bug Tracker" = ""
+
+[tool.hatch.build.targets.wheel]
+include = [
+    "app.py",
+    "pages/**",
+    "utils/**",
+    "static/**",
+    "Readme.md",
+    "LICENSE",
+]
