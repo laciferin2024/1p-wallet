@@ -1,3 +1,6 @@
+import streamlit as st
+
+
 # Manage Wallet Page
 st.header("💰 Manage Wallet")
 

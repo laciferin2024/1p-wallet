@@ -1,3 +1,6 @@
+
+import streamlit as st
+
 # Registration Page
 st.header("📝 Registration")
 

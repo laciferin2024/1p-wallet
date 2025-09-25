@@ -1,4 +1,6 @@
 # Account Page - basic account details and reset
+import streamlit as st
+
 st.header("👤 Account")
 
 if not app.wallet:

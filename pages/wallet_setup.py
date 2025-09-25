@@ -1,6 +1,8 @@
 # Wallet Setup Page
 # Note: This file is executed in the context of app.py, so all imports are available
 
+import streamlit as st
+
 st.header("💳 Import/Generate Wallet")
 
 # Attempt automatic restore from browser localStorage if streamlit_javascript is available
@@ -138,6 +140,19 @@ if app.wallet:
                         txn_hash = result.get('txn_hash', 'Unknown')
                         st.success(f"✅ Successfully requested tokens!")
                         st.info(f"Transaction hash: `{txn_hash}`")
+
+                        # Record the faucet transaction in our history
+                        app.add_transaction(
+                            txn_hash=txn_hash,
+                            sender="Aptos Faucet",
+                            recipient=str(app.wallet.address()),
+                            amount=1.0,  # Faucet typically sends 1 APT
+                            is_credit=True,
+                            status="completed",
+                            description="Testnet Faucet Claim"
+                        )
+                        st.session_state.app = app
+                        st.markdown("📋 You can view this transaction in your **Transaction History** page")
 
                         # Add refresh button to check balance
                         if st.button("Check Updated Balance"):

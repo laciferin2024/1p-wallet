@@ -8,17 +8,48 @@ from aptos_sdk.async_client import RestClient as AsyncRestClient
 def _run_coro_sync(coro):
     """Run coroutine synchronously, even if an event loop is already running.
 
-    If called from a thread that has an active event loop (e.g., some Streamlit
-    environments), we execute asyncio.run in a new thread so it can create and
-    manage its own loop.
+    This version is more robust against the "Event loop is closed" error that can
+    occur in Streamlit when reusing an event loop.
     """
     try:
+        # First try with asyncio.run (simplest approach)
         return asyncio.run(coro)
-    except RuntimeError:
-        # Likely "asyncio.run() cannot be called from a running event loop"
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
-            future = ex.submit(asyncio.run, coro)
-            return future.result()
+    except RuntimeError as e:
+        # Handle "asyncio.run cannot be called from a running event loop"
+        if "cannot be called from a running event loop" in str(e):
+            try:
+                # Get the current event loop
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    # Create a new loop if the current one is closed
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+
+                # Run the coroutine in the current or new loop
+                return loop.run_until_complete(coro)
+            except Exception as inner_e:
+                # If that also fails, try with a thread
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                    future = ex.submit(lambda: _run_in_new_loop(coro))
+                    return future.result()
+        else:
+            # For other RuntimeErrors, try with a thread
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as ex:
+                future = ex.submit(lambda: _run_in_new_loop(coro))
+                return future.result()
+
+def _run_in_new_loop(coro):
+    """Helper function to run a coroutine in a completely new event loop."""
+    # Create a new loop
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        # Run the coroutine
+        return loop.run_until_complete(coro)
+    finally:
+        # Clean up properly
+        loop.close()
 
 
 class RestClientSync:

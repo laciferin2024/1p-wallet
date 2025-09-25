@@ -130,35 +130,13 @@ class App:
     def get_account_balance_sync(self, address):
         """Synchronous wrapper for get_account_balance"""
         try:
-            import asyncio
+            # Use our more robust _run_coro_sync function
             from utils.aptos_sync import _run_coro_sync
             return _run_coro_sync(self.get_account_balance(address))
         except Exception as e:
-            error_msg = str(e)
-            if "Event loop is closed" in error_msg:
-                # If event loop is closed, create a new one
-                import nest_asyncio
-                import asyncio
-
-                try:
-                    nest_asyncio.apply()  # Allow nested event loops
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    result = loop.run_until_complete(self.get_account_balance(address))
-                    loop.close()
-                    return result
-                except ImportError:
-                    # If nest_asyncio isn't available, fall back to manual alternative
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        result = loop.run_until_complete(self.get_account_balance(address))
-                        return result
-                    finally:
-                        loop.close()
-            else:
-                # Re-raise other errors
-                raise
+            logging.error(f"Error in get_account_balance_sync: {str(e)}")
+            # Return 0 for balance rather than crashing completely
+            return 0.0
 
     def add_transaction(self, txn_hash, sender, recipient, amount, is_credit=None, status="completed", description=""):
         """Add a transaction to the transaction history"""

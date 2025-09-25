@@ -1,6 +1,9 @@
 # Transaction History Page
 # This page displays the user's transaction history, showing credits and debits
 
+import streamlit as st
+
+
 st.header("📋 Transaction History")
 
 if not app.wallet:
